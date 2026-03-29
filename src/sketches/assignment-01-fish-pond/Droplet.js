@@ -31,7 +31,7 @@ export default class Droplet {
     for (const wave of this.waveRadii) {
         const thickness = Math.max(0.2, 2 - wave * 0.1);
 
-        this.p.stroke(0);
+        this.p.stroke(255);
         this.p.strokeWeight(thickness);
         this.p.circle(this.center.x, this.center.y, wave * 2);
     }

@@ -2,29 +2,39 @@ import p5 from "p5";
 import Fish from "./Fish.js";
 import Droplet from "./Droplet.js";
 import Food from "./Food.js";
+import Pond from "./Pond.js";
 
-const nFish = 300;
-const school = [];
+const nFish = 6;
 const water = [];
 const food = [];
+const BACKGROUND_COLOR = [255, 255, 255];
+const dropletProbability = 0.01;
+let pond;
+
 
 new p5((p) => {
   p.setup = () => {
-    p.createCanvas(800, 400);
-    for (let i = 0; i < nFish; i++) {
-        school.push(new Fish(p));
-    }
+    p.createCanvas(600, 600);
+
+    pond = new Pond(p);
+    pond.addNFish(nFish);
+
+    p.mousePressed = () => {
+      food.push(new Food(p, p.mouseX, p.mouseY));
+    };
   };
 
   p.draw = () => {
-    p.background(135, 187, 168);
+    p.background(BACKGROUND_COLOR);
+    pond.show();
 
-    for (const fish of school) {
-      fish.flock(school);
-      fish.eat(food);
-      fish.hunt(food);
-      fish.update();
-      fish.show();
+    for (const fish of pond.school) {
+        fish.avoidWall(pond);
+        fish.flock(pond.school);
+        fish.eat(food);
+        fish.hunt(food);
+        fish.update();
+        fish.show();
     }
     for (const droplet of water) {
       droplet.update();
@@ -39,15 +49,14 @@ new p5((p) => {
         }
     }
 
-    if (Math.random() < 0.01) {
-        water.push(new Droplet(p, Math.random() * p.width, Math.random() * p.height))
-    };
-    // if (Math.random() < 0.1) {
-    //     food.push(new Food(p, Math.random() * p.width, Math.random() * p.height))
-    // };
-    p.mouseDragged = () => {
-        food.push(new Food(p, p.mouseX, p.mouseY));
+    if (Math.random() < dropletProbability) {
+        let x, y;
+        do {
+            x = Math.random() * p.width;
+            y = Math.random() * p.height;
+        } while (!pond.isInsidePond(p.createVector(x, y)));
+      water.push(new Droplet(p, x, y));
     }
-    };
+  };
 
 });
