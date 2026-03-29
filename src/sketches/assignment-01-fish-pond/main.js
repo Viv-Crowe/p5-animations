@@ -1,8 +1,10 @@
 import p5 from "p5";
 import Fish from "./Fish.js";
+import Droplet from "./Droplet.js";
 
 const nFish = 300;
 const school = [];
+const water = [];
 
 new p5((p) => {
   p.setup = () => {
@@ -20,5 +22,18 @@ new p5((p) => {
       fish.update();
       fish.show();
     }
-  };
+    for (const droplet of water) {
+      droplet.update();
+      droplet.show();
+    }
+    for (let i = water.length - 1; i >= 0; i--) {
+        if (water[i].isFinished()) {
+            water.splice(i, 1);
+        }
+    }
+
+    if (Math.random() < 0.1) {
+        water.push(new Droplet(p, Math.random() * p.width, Math.random() * p.height))
+    };
+    };
 });
