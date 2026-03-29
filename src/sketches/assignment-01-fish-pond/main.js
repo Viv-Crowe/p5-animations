@@ -39,11 +39,15 @@ new p5((p) => {
         }
     }
 
-    if (Math.random() < 0.1) {
+    if (Math.random() < 0.01) {
         water.push(new Droplet(p, Math.random() * p.width, Math.random() * p.height))
     };
-    if (Math.random() < 0.1) {
-        food.push(new Food(p, Math.random() * p.width, Math.random() * p.height))
+    // if (Math.random() < 0.1) {
+    //     food.push(new Food(p, Math.random() * p.width, Math.random() * p.height))
+    // };
+    p.mouseDragged = () => {
+        food.push(new Food(p, p.mouseX, p.mouseY));
+    }
     };
-    };
+
 });
