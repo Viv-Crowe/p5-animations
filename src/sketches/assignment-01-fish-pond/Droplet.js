@@ -1,4 +1,4 @@
-const WAVE_PROPAGATION_SPEED = 0.75;
+const WAVE_PROPAGATION_SPEED = 0.1;
 const WAVE_PERIOD_LENGTH = 6;
 const INITIAL_RADIUS = 0.1;
 const MAX_RADIUS = 50;
@@ -29,7 +29,7 @@ export default class Droplet {
     this.p.noFill();
 
     for (const wave of this.waveRadii) {
-        const thickness = Math.max(0.2, 2 - wave * 0.1);
+        const thickness = Math.max(0.05, 2 - wave * 0.1);
 
         this.p.stroke(255);
         this.p.strokeWeight(thickness);

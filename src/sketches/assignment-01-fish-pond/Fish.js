@@ -1,8 +1,8 @@
 import p5 from "p5";
 
-const ALIGNMENT_RATE = 1.0;
+const ALIGNMENT_RATE = 0.2;
 const COHESION_RATE = 0.2;
-const SEPARATION_RATE = 10;
+const SEPARATION_RATE = 4;
 
 const WALL_TOLERANCE = 100;
 const ALLOWED_OVERLAP = -5;
@@ -16,16 +16,21 @@ export default class Fish {
     this.velocity.setMag(1);
     this.acceleration = p.createVector(0,0);
     this.maxForce = 0.1;
-    this.maxSpeed = 2.5;
+    this.maxSpeed = 1.5;
   }
 
   flock(school) {
     const alignment = this.align(school).mult(ALIGNMENT_RATE);
-    const cohesion = this.cohere(school).mult(COHESION_RATE);
+    // const cohesion = this.cohere(school).mult(COHESION_RATE);
     const separation = this.separate(school).mult(SEPARATION_RATE);
     this.acceleration.add(alignment);
-    this.acceleration.add(cohesion);
+    // this.acceleration.add(cohesion);
     this.acceleration.add(separation);
+
+    // add some randomness and to break up groups
+    const randomSteering = p5.Vector.random2D().mult(0.2);
+    this.acceleration.add(randomSteering);
+
   }
 
   align(school) {
@@ -119,7 +124,7 @@ export default class Fish {
 
         const desired = tangent.add(inward);
         const steering = desired.setMag(this.maxSpeed).sub(this.velocity);
-        steering.limit(this.maxForce * 2);
+        steering.limit(this.maxForce);
 
         this.acceleration.add(steering);
       }
@@ -140,7 +145,7 @@ export default class Fish {
     this.acceleration.mult(0);
   }
   show() {
-    this.p.strokeWeight(24);
+    this.p.strokeWeight(12);
     this.p.stroke(255);
     this.p.point(this.position.x, this.position.y);
   }
