@@ -52,6 +52,37 @@ export default class Fish {
     });
   }
 
+  eat(food) {
+    for (let i = food.length - 1; i >= 0; i--) {
+        if (this.position.dist(food[i].position) < 5) {
+            food.splice(i, 1);
+        }
+    }
+  } 
+
+  hunt(food) {
+    if (food.length === 0) {
+        return;
+    }
+    
+    const closestFood = food.reduce((closest, f) => {
+        const d = this.position.dist(f.position);
+        if (d < closest.distance) {
+            return { food: f, distance: d };
+        } else {
+            return closest;
+        }
+    }, { food: null, distance: Infinity }).food;
+    if (closestFood) {
+        const desired = p5.Vector.sub(closestFood.position, this.position);
+        desired.setMag(this.maxSpeed);
+        const steering = desired.sub(this.velocity);
+        steering.limit(this.maxForce);
+        this.acceleration.add(steering);
+    }
+
+  }
+
   getNeighbors(school, radius) {
     return school.filter(
       (otherFish) =>
