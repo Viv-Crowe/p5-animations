@@ -16,7 +16,7 @@ export default class Fish {
     this.velocity.setMag(1);
     this.acceleration = p.createVector(0,0);
     this.maxForce = 0.1;
-    this.maxSpeed = 1.5;
+    this.maxSpeed = 1.0;
   }
 
   flock(school) {
@@ -101,7 +101,7 @@ export default class Fish {
       const maxDistance = pond.radius + ALLOWED_OVERLAP;
       const outsideAmount = centerDistance - maxDistance;
 
-      // Hard recovery when a fish gets too far outside the boundary.
+      // If fish goes fully outside the pond, snap it back in
       if (outsideAmount > OUTSIDE_RECOVERY_MARGIN) {
         toFish.setMag(maxDistance);
         this.position = p5.Vector.add(pond.center, toFish);
@@ -110,7 +110,7 @@ export default class Fish {
       if (pond.distToPondWall(this.position) < WALL_TOLERANCE) {
         const normal = p5.Vector.sub(this.position, pond.center).normalize();
 
-        // Two possible tangent directions, pick the one closest to current direction.
+        // calculate the 2 tangent vectors then pick the one closest to current direction
         const tangent1 = this.p.createVector(-normal.y, normal.x);
         const tangent2 = this.p.createVector(normal.y, -normal.x);
         const tangent =
@@ -118,7 +118,7 @@ export default class Fish {
             ? tangent1
             : tangent2;
 
-        // The farther outside the fish is, the stronger the inward pull.
+        // the farther outside the fish is, the stronger the inward pull
         const inwardStrength = outsideAmount > 0 ? 0.6 + outsideAmount * 0.02 : 0.3;
         const inward = normal.copy().mult(-inwardStrength);
 

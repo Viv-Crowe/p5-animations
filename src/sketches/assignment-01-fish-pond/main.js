@@ -14,7 +14,7 @@ let pond;
 
 new p5((p) => {
   p.setup = () => {
-    p.createCanvas(1500, 900);
+    p.createCanvas(1200, 800);
 
     pond = new Pond(p);
     pond.addNFish(nFish);
