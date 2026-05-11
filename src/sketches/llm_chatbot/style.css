@@ -1,0 +1,235 @@
+/* ═══════════════════════════════════════════════════════════
+   IxD CHATBOT  ·  style.css
+
+   The canvas sits INSIDE #chat-panel, not full-screen.
+   #chat-panel is position:relative so the canvas and input
+   area can be stacked inside it with position:absolute.
+   ═══════════════════════════════════════════════════════════ */
+
+
+/* ── Reset & base ─────────────────────────────────────────── */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0D0D0D;
+  overflow: hidden;
+  font-family: 'DM Sans', sans-serif;
+}
+
+
+/* ── Main layout grid ─────────────────────────────────────── */
+
+#ui {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  grid-template-rows: auto 1fr;
+  gap: 10px;
+  padding: 16px;
+}
+
+
+/* ── Header ───────────────────────────────────────────────── */
+
+#header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+#header h1 {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: #E8C547;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+#model-select {
+  margin-left: auto;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: #888;
+  background: #141414;
+  border: 1px solid #2A2A2A;
+  padding: 4px 9px;
+  border-radius: 3px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+#model-select:focus  { border-color: #E8C547; }
+#model-select option { background: #141414; color: #888; }
+
+
+/* ── Shared panel styles ──────────────────────────────────── */
+
+.panel {
+  background: rgba(16, 16, 16, 0.92);
+  border: 1px solid #1E1E1E;
+  border-radius: 8px;
+}
+
+.panel-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  font-weight: 500;
+  color: #E8C547;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+
+/* ── Left panel: persona editor ───────────────────────────── */
+
+#persona-panel {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.api-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+#api-key {
+  flex: 1;
+  min-width: 0;
+  background: #0A0A0A;
+  border: 1px solid #242424;
+  border-radius: 4px;
+  color: #A09080;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  padding: 7px 10px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+#api-key:focus        { border-color: #E8C547; }
+#api-key::placeholder { color: #2E2E2E; }
+
+#system-prompt {
+  flex: 1;
+  background: #0A0A0A;
+  border: 1px solid #242424;
+  border-radius: 4px;
+  color: #9A8F80;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11.5px;
+  line-height: 1.75;
+  padding: 12px;
+  resize: none;
+  outline: none;
+  transition: border-color 0.2s;
+  min-height: 0;
+}
+#system-prompt:focus { border-color: #E8C547; }
+
+.btn-row { display: flex; gap: 7px; }
+
+#apply-btn {
+  flex: 1;
+  background: #E8C547;
+  color: #0D0D0D;
+  border: none;
+  border-radius: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 9px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+#apply-btn:hover { opacity: 0.82; }
+
+#clear-btn {
+  background: transparent;
+  border: 1px solid #242424;
+  border-radius: 4px;
+  color: #444;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  padding: 9px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+#clear-btn:hover { border-color: #444; color: #777; }
+
+
+/* ── Right panel: canvas ──────────────────────────── */
+
+/* position:relative lets the canvas and input area stack
+   inside this panel using position:absolute */
+#chat-panel {
+  position: relative;
+  overflow: hidden; /* clips the canvas neatly to the panel border */
+}
+
+/* The p5 canvas fills the entire chat panel.
+   It is created and parented here by setup() in sketch.js. */
+#chat-panel canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* Input row sits on top of the canvas at the bottom of the panel.
+   z-index:5 ensures it's always above the canvas. */
+#input-area {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  gap: 8px;
+  padding: 12px 14px;
+  background: rgba(13, 13, 13, 0.88);
+  backdrop-filter: blur(6px);
+  border-top: 1px solid #1E1E1E;
+}
+
+#user-input {
+  flex: 1;
+  background: #0F0F0F;
+  border: 1px solid #242424;
+  border-radius: 6px;
+  color: #C8C0B4;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13.5px;
+  padding: 9px 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+#user-input:focus        { border-color: #E8C547; }
+#user-input::placeholder { color: #2C2C2C; }
+
+#send-btn {
+  background: #E8C547;
+  color: #0D0D0D;
+  border: none;
+  border-radius: 6px;
+  padding: 9px 18px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+#send-btn:hover    { opacity: 0.82; }
+#send-btn:disabled { opacity: 0.25; cursor: not-allowed; }
