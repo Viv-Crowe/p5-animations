@@ -6,6 +6,9 @@ new p5((p) => {
 const W = 640;
 const H = 480;
 
+const HOLD_FRAMES = 5; // how long to hold on the previous frames if the body disappears
+const MAX_MISSING = 30;
+
   // const VIDEO_W = 480; // use this small video for pose detection
   // const VIDEO_H = 240;
   
@@ -31,7 +34,8 @@ const H = 480;
   // Approximate pixel height from nose to mid-ankle
   let bodyHeight = 0;
   // Circle bounding the head { x, y, radius }, or null
-  let headCircleBuffer = [];
+  let headCircle = null;
+  let lastGoodHeadCircle = null;
   let smoothedHeadCircle = null;
 
   function updateBodyStats(pose) {
@@ -62,11 +66,74 @@ const H = 480;
       } else {
         radius = bodyHeight > 0 ? bodyHeight * 0.12 : 50;
       }
-      updateBuffer(headCircleBuffer, { x: kp[0].x, y: kp[0].y, radius })
-      smoothedHeadCircle = avgHeadCircle(headCircleBuffer)
+      headCircle = { x: kp[0].x, y: kp[0].y, radius }
+      const displayHeadCircle = updateSmoothedHeadCircle(headCircle);
+
+      if (displayHeadCircle) {
+        drawHeadCircle(displayHeadCircle);
+      }
       
     }
   }
+
+  function smoothValue(previous, current, alpha, deadzone = 0) {
+    if (!Number.isFinite(current)) return previous;
+    if (previous === null || previous === undefined) return current;
+    const diff = current - previous;
+    if (Math.abs(diff) < deadzone) {
+      return previous;
+    }
+    return previous + diff * alpha;
+
+  }
+
+function smoothCircleToward(targetCircle) {
+  if (!targetCircle) return smoothedHeadCircle;
+  if (!smoothedHeadCircle) {
+    smoothedHeadCircle = { ...targetCircle };
+    return smoothedHeadCircle;
+  }
+  smoothedHeadCircle.x = smoothValue(smoothedHeadCircle.x, targetCircle.x, 0.22, 3);
+  smoothedHeadCircle.y = smoothValue(smoothedHeadCircle.y, targetCircle.y, 0.22, 3);
+  smoothedHeadCircle.radius = smoothValue(smoothedHeadCircle.radius, targetCircle.radius, 0.12, 2);
+  return smoothedHeadCircle;
+
+}
+
+function updateSmoothedHeadCircle(currentHeadCircle) {
+  const hasGoodHead =
+    currentHeadCircle &&
+    Number.isFinite(currentHeadCircle.x) &&
+    Number.isFinite(currentHeadCircle.y) &&
+    Number.isFinite(currentHeadCircle.radius);
+  if (hasGoodHead) {
+    let missingHeadFrames = 0;
+    lastGoodHeadCircle = { ...currentHeadCircle };
+    // Smooth toward the newly detected position.
+    return smoothCircleToward(lastGoodHeadCircle);
+  }
+
+  // No valid pose/head this frame.
+
+  missingHeadFrames++;
+  if (missingHeadFrames <= HOLD_FRAMES) {
+    // Brief dropout: hold the existing smoothed circle.
+    return smoothedHeadCircle;
+  }
+
+  if (missingHeadFrames <= MAX_MISSING && lastGoodHeadCircle) {
+    // Longer dropout: still keep it around.
+    // Maybe shrink/fade here
+    return smoothedHeadCircle;
+  }
+
+  // Pose has been gone too long. Reset so the next detection starts fresh.
+  smoothedHeadCircle = null;
+  lastGoodHeadCircle = null;
+
+  return null;
+
+}
 
   function updateBuffer(buffer, value) {
   buffer.push(value);
