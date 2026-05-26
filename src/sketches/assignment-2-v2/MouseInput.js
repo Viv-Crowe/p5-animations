@@ -1,12 +1,14 @@
+import { SignalSmoother } from './SignalSmoother.js';
+
 // Mouse-based input source for testing without a camera.
-// Implements the same InputSource interface as FaceTracker:
+// Implements the same InputSource interface as FaceTracker and HandInput:
 //   start()  — no-op
 //   update() — call each frame
 //   state    — { x, y, velX, velY, accelX, noSignal }
 export class MouseInput {
   #p;
-  #state = null;
-  #alpha = 0.25; // lighter smoothing than face — mouse is already deliberate
+  #state    = null;
+  #smoother = new SignalSmoother();
 
   constructor(p) {
     this.#p = p;
@@ -15,21 +17,15 @@ export class MouseInput {
   start() {}
 
   update() {
-    const p    = this.#p;
-    const rawX = p.mouseX;
-    const rawY = p.mouseY;
-    const a    = this.#alpha;
-    const prev = this.#state;
+    const p = this.#p;
+    const noSignal = p.mouseX < 0 || p.mouseX > p.width || p.mouseY < 0 || p.mouseY > p.height;
 
-    const x      = prev ? prev.x + (rawX - prev.x) * a : rawX;
-    const y      = prev ? prev.y + (rawY - prev.y) * a : rawY;
-    const velX   = prev ? x - prev.x : 0;
-    const velY   = prev ? y - prev.y : 0;
-    const accelX = prev ? velX - prev.velX : 0;
+    if (noSignal) {
+      if (this.#state) this.#state = { ...this.#state, noSignal: true };
+      return;
+    }
 
-    // noSignal when mouse is outside the canvas
-    const noSignal = rawX < 0 || rawX > p.width || rawY < 0 || rawY > p.height;
-    this.#state = { x, y, velX, velY, accelX, noSignal };
+    this.#state = this.#smoother.process(p.mouseX, p.mouseY);
   }
 
   get state() { return this.#state; }

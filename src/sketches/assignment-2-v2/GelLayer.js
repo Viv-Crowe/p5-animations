@@ -1,11 +1,12 @@
 // ── Adjustable parameters ──────────────────────────────────────────────────
-// sensitivity (px)  : max top-edge displacement in response to face velX.
-//                     Higher = gel reacts more violently to movement.
-// spring      (0–1) : spring constant pulling each column toward its target.
-//                     Higher = snappier recovery.
-// damping     (0–1) : velocity multiplier per frame (1 = no damping, 0 = instant stop).
-//                     Lower = more viscous, slower settling.
-// visible     bool  : render this layer at all.
+// sensitivity (px)   : peak displacement per unit of accelX. Higher = more
+//                      violent reaction. accelX is small (~0.05–0.5 px/f²)
+//                      so this needs to be large (100–400).
+// bumpWidth   (0–1)  : Gaussian sigma as a fraction of canvas width.
+//                      0.1 = tight spike, 0.3 = broad swell.
+// spring      (0–1)  : stiffness pulling each column toward its target.
+// damping     (0–1)  : velocity multiplier per frame. Lower = more viscous.
+// visible     bool   : render this layer at all.
 // ──────────────────────────────────────────────────────────────────────────
 const N_COLS = 60;
 
@@ -19,32 +20,45 @@ export class GelLayer {
 
   params = {
     visible:     true,
-    sensitivity: 10,
+    sensitivity: 150,
+    bumpWidth:   0.18,
     spring:      0.04,
     damping:     0.82,
   };
 
   constructor(p, y, h) {
-    this.#p    = p;
-    this.#y    = y;
-    this.#h    = h;
+    this.#p     = p;
+    this.#y     = y;
+    this.#h     = h;
     this.#disps = new Float32Array(N_COLS);
     this.#vels  = new Float32Array(N_COLS);
   }
 
   #colX(i) { return (i / (N_COLS - 1)) * this.#p.width; }
 
+  // Gaussian bell centred at peakX with given sigma (px).
+  // Returns value in [0, 1].
+  #gauss(colX, peakX, sigma) {
+    const d = colX - peakX;
+    return Math.exp(-(d * d) / (2 * sigma * sigma));
+  }
+
   update(signal) {
-    const { sensitivity, spring, damping } = this.params;
+    const { sensitivity, bumpWidth, spring, damping } = this.params;
+    const p = this.#p;
     this.#restPhase += 0.012;
 
-    for (let i = 0; i < N_COLS; i++) {
-      const rest = Math.sin(this.#restPhase + i * 0.18) * 3;
-      let target = rest;
+    const hasFace = signal && !signal.noSignal;
+    const peakX   = hasFace ? signal.x : p.width / 2;
+    const sigma   = p.width * bumpWidth;
 
-      if (signal && !signal.noSignal) {
-        const t = i / (N_COLS - 1);
-        target += signal.velX * sensitivity * Math.sin(t * Math.PI);
+    for (let i = 0; i < N_COLS; i++) {
+      const rest  = Math.sin(this.#restPhase + i * 0.18) * 3;
+      let target  = rest;
+
+      if (hasFace) {
+        const shape = this.#gauss(this.#colX(i), peakX, sigma);
+        target += signal.accelX * sensitivity * shape;
       }
 
       const force      = (target - this.#disps[i]) * spring;

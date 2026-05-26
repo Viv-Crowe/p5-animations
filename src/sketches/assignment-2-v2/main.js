@@ -108,8 +108,10 @@ new p5((p) => {
     // ── Gel Layer ──────────────────────────────────────────────────────────
     const gelFolder = gui.addFolder('Gel Layer');
     gelFolder.add(gelLayer.params, 'visible').name('Visible');
-    gelFolder.add(gelLayer.params, 'sensitivity', 0, 40, 0.5)
-      .name('Sensitivity (velX→disp)');
+    gelFolder.add(gelLayer.params, 'sensitivity', 0, 400, 5)
+      .name('Sensitivity (accelX→disp)');
+    gelFolder.add(gelLayer.params, 'bumpWidth', 0.05, 0.5, 0.01)
+      .name('Bump width (σ)');
     gelFolder.add(gelLayer.params, 'spring', 0.01, 0.2, 0.005)
       .name('Spring stiffness');
     gelFolder.add(gelLayer.params, 'damping', 0.5, 0.99, 0.01)

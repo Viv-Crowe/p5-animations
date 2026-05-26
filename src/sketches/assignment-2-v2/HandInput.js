@@ -1,4 +1,5 @@
 import ml5 from 'ml5';
+import { SignalSmoother } from './SignalSmoother.js';
 
 // Tracks the index finger tip (MediaPipe landmark #8) via ml5 HandPose.
 // Implements the same InputSource interface as FaceTracker and MouseInput:
@@ -7,9 +8,9 @@ import ml5 from 'ml5';
 //   state    — { x, y, velX, velY, accelX, noSignal }
 export class HandInput {
   #video;
-  #hands = [];
-  #state = null;
-  #alpha = 0.18;
+  #hands    = [];
+  #state    = null;
+  #smoother = new SignalSmoother();
 
   constructor(video) {
     this.#video = video;
@@ -34,15 +35,7 @@ export class HandInput {
       return;
     }
 
-    const prev   = this.#state;
-    const a      = this.#alpha;
-    const x      = prev ? prev.x + (tip.x - prev.x) * a : tip.x;
-    const y      = prev ? prev.y + (tip.y - prev.y) * a : tip.y;
-    const velX   = prev ? x - prev.x : 0;
-    const velY   = prev ? y - prev.y : 0;
-    const accelX = prev ? velX - prev.velX : 0;
-
-    this.#state = { x, y, velX, velY, accelX, noSignal: false };
+    this.#state = this.#smoother.process(tip.x, tip.y);
   }
 
   get state() { return this.#state; }
