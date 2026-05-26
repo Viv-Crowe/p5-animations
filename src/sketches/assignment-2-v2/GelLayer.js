@@ -1,6 +1,13 @@
-const N_COLS  = 60;
-const SPRING  = 0.04;
-const DAMPING = 0.82;
+// ── Adjustable parameters ──────────────────────────────────────────────────
+// sensitivity (px)  : max top-edge displacement in response to face velX.
+//                     Higher = gel reacts more violently to movement.
+// spring      (0–1) : spring constant pulling each column toward its target.
+//                     Higher = snappier recovery.
+// damping     (0–1) : velocity multiplier per frame (1 = no damping, 0 = instant stop).
+//                     Lower = more viscous, slower settling.
+// visible     bool  : render this layer at all.
+// ──────────────────────────────────────────────────────────────────────────
+const N_COLS = 60;
 
 export class GelLayer {
   #p;
@@ -9,6 +16,13 @@ export class GelLayer {
   #disps;
   #vels;
   #restPhase = 0;
+
+  params = {
+    visible:     true,
+    sensitivity: 10,
+    spring:      0.04,
+    damping:     0.82,
+  };
 
   constructor(p, y, h) {
     this.#p    = p;
@@ -20,25 +34,28 @@ export class GelLayer {
 
   #colX(i) { return (i / (N_COLS - 1)) * this.#p.width; }
 
-  update(face) {
+  update(signal) {
+    const { sensitivity, spring, damping } = this.params;
     this.#restPhase += 0.012;
 
     for (let i = 0; i < N_COLS; i++) {
       const rest = Math.sin(this.#restPhase + i * 0.18) * 3;
       let target = rest;
 
-      if (face && !face.noFace) {
+      if (signal && !signal.noSignal) {
         const t = i / (N_COLS - 1);
-        target += face.velX * 10 * Math.sin(t * Math.PI);
+        target += signal.velX * sensitivity * Math.sin(t * Math.PI);
       }
 
-      const force     = (target - this.#disps[i]) * SPRING;
-      this.#vels[i]   = (this.#vels[i] + force) * DAMPING;
-      this.#disps[i] += this.#vels[i];
+      const force      = (target - this.#disps[i]) * spring;
+      this.#vels[i]    = (this.#vels[i] + force) * damping;
+      this.#disps[i]  += this.#vels[i];
     }
   }
 
   draw() {
+    if (!this.params.visible) return;
+
     const p  = this.#p;
     const sy = this.#y;
     const ey = this.#y + this.#h;

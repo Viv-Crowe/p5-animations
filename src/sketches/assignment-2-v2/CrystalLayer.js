@@ -1,22 +1,33 @@
 import { Crystal } from './Crystal.js';
 
-const CRYSTAL_COUNT  = 80;
-const PARALLAX_SCALE = 0.2;  // fraction of (faceX - centreX) applied as max displacement
+// ── Adjustable parameters ──────────────────────────────────────────────────
+// parallaxScale  (0–1)   : how far crystals shift relative to face position offset.
+//                          0 = no parallax, 1 = crystals track face 1:1.
+// depthFade      bool    : darken/fade crystals with low depthFactor (far away).
+// visible        bool    : render this layer at all.
+// ──────────────────────────────────────────────────────────────────────────
+const CRYSTAL_COUNT = 200;
 
 export class CrystalLayer {
   #p;
   #texture;
-  #crystals = [];
-  #texOffsetX = 0;
-  #driftPhase = 0;
+  #crystals    = [];
+  #texOffsetX  = 0;
+  #driftPhase  = 0;
   #y;
   #h;
 
+  params = {
+    visible:       true,
+    parallaxScale: 0.2,
+    depthFade:     true,
+  };
+
   constructor(p, texture, sprites, y, h) {
-    this.#p = p;
+    this.#p       = p;
     this.#texture = texture;
-    this.#y = y;
-    this.#h = h;
+    this.#y       = y;
+    this.#h       = h;
 
     for (let i = 0; i < CRYSTAL_COUNT; i++) {
       const x           = p.random(p.width);
@@ -27,22 +38,24 @@ export class CrystalLayer {
     }
   }
 
-  update(face) {
+  update(signal) {
     const p = this.#p;
 
-    if (face && !face.noFace) {
-      const lateralDisp  = (face.x - p.width / 2) * PARALLAX_SCALE;
-      const targetOffset = face.accelX * -25;
+    if (signal && !signal.noSignal) {
+      const lateralDisp  = (signal.x - p.width / 2) * this.params.parallaxScale;
+      const targetOffset = signal.accelX * -25;
       this.#texOffsetX  += (targetOffset - this.#texOffsetX) * 0.06;
       for (const c of this.#crystals) c.update(lateralDisp);
     } else {
-      this.#driftPhase  += 0.003;
-      this.#texOffsetX   = Math.sin(this.#driftPhase) * 3;
+      this.#driftPhase += 0.003;
+      this.#texOffsetX  = Math.sin(this.#driftPhase) * 3;
       for (const c of this.#crystals) c.update(0);
     }
   }
 
   draw() {
+    if (!this.params.visible) return;
+
     const p   = this.#p;
     const ctx = p.drawingContext;
 
@@ -51,10 +64,11 @@ export class CrystalLayer {
     ctx.rect(0, this.#y, p.width, this.#h);
     ctx.clip();
 
+    // Background: texture tile or solid dark fill
     if (this.#texture) {
-      const scale    = this.#h / this.#texture.height;
-      const scaledW  = this.#texture.width * scale;
-      const offset   = ((this.#texOffsetX % scaledW) + scaledW) % scaledW;
+      const scale   = this.#h / this.#texture.height;
+      const scaledW = this.#texture.width * scale;
+      const offset  = ((this.#texOffsetX % scaledW) + scaledW) % scaledW;
       for (let x = -scaledW + offset; x < p.width + scaledW; x += scaledW) {
         p.image(this.#texture, x, this.#y, scaledW, this.#h);
       }
@@ -66,7 +80,7 @@ export class CrystalLayer {
       p.pop();
     }
 
-    for (const c of this.#crystals) c.draw();
+    for (const c of this.#crystals) c.draw(this.params.depthFade);
 
     ctx.restore();
   }

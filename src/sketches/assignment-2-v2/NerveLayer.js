@@ -1,8 +1,16 @@
+// ── Adjustable parameters ──────────────────────────────────────────────────
+// visible  bool  : render this layer at all.
+// ──────────────────────────────────────────────────────────────────────────
+// Placeholder — nerve firing pulses are Phase 6 (not yet implemented).
 export class NerveLayer {
   #p;
   #y;
   #h;
   #branches = [];
+
+  params = {
+    visible: true,
+  };
 
   constructor(p, y, h) {
     this.#p = p;
@@ -29,9 +37,11 @@ export class NerveLayer {
     this.#branch(endX, endY, angle + spread, len * 0.68, depth - 1);
   }
 
-  update(_face) {}
+  update(_signal) {}
 
   draw() {
+    if (!this.params.visible) return;
+
     const p = this.#p;
     p.push();
     p.fill(5, 5, 15);
