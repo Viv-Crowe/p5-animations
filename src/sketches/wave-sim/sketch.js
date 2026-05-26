@@ -5,8 +5,8 @@ const GRID_WIDTH = 800;   // world units, centred on x = 0
 const GRID_DEPTH = 800;   // world units, z = 0 (near) → GRID_DEPTH (far)
 
 // ── Camera ────────────────────────────────────────────────────────────────────
-const CAM_X  =   0,  CAM_Y  = -80,  CAM_Z  = -60;
-const LOOK_X =   0,  LOOK_Y =   0,  LOOK_Z = 400;
+const CAM_X  =   0,  CAM_Y  = -30,  CAM_Z  = -150;
+const LOOK_X =   0,  LOOK_Y = -30,  LOOK_Z =  400;
 
 // ── Wave parameters ───────────────────────────────────────────────────────────
 const IDLE_STATE = {
