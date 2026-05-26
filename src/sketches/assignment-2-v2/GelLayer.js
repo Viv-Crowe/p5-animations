@@ -61,8 +61,8 @@ export class GelLayer {
     const ey = this.#y + this.#h;
 
     p.push();
-    p.fill(255, 140, 20, 140);
-    p.stroke(220, 100, 10, 200);
+    p.fill(205, 192, 168, 65);
+    p.stroke(178, 164, 142, 110);
     p.strokeWeight(1.5);
 
     p.beginShape();

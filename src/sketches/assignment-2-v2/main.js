@@ -75,14 +75,15 @@ new p5((p) => {
   }
 
   function buildLayers() {
-    const H        = p.height;
-    const crystalH = H * 0.67;
-    const gelY     = H * 0.67;
-    const gelH     = H * 0.16;
-    const nerveY   = H * 0.83;
-    const nerveH   = H * 0.17;
+    const H              = p.height;
+    const crystalTextureH = H * 0.67; // dark background stops here
+    const crystalTotalH  = H * 0.67;  // crystal sprites confined to top band
+    const gelY           = H * 0.67;
+    const gelH           = H * 0.16;
+    const nerveY         = H * 0.83;
+    const nerveH         = H * 0.17;
 
-    crystalLayer = new CrystalLayer(p, texture, sprites, 0, crystalH);
+    crystalLayer = new CrystalLayer(p, texture, sprites, 0, crystalTotalH, crystalTextureH);
     gelLayer     = new GelLayer(p, gelY, gelH);
     nerveLayer   = new NerveLayer(p, nerveY, nerveH);
   }
@@ -129,8 +130,9 @@ new p5((p) => {
     gelLayer.update(signal);
     nerveLayer.update(signal);
 
-    crystalLayer.draw();
-    gelLayer.draw();
+    crystalLayer.drawBackground(); // dark bg / texture (crystal field only)
+    gelLayer.draw();               // gel on top of background
+    crystalLayer.drawCrystals();   // sprites on top of gel, no clip
     nerveLayer.draw();
 
     if (appParams.showDebugOverlay) debugOverlay.draw(signal);

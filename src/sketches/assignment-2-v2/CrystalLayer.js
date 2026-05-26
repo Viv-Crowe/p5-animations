@@ -15,7 +15,8 @@ export class CrystalLayer {
   #texOffsetX  = 0;
   #driftPhase  = 0;
   #y;
-  #h;
+  #h;          // full crystal placement height (may extend into gel zone)
+  #textureH;   // dark background clip height (crystal field only)
 
   params = {
     visible:       true,
@@ -23,11 +24,15 @@ export class CrystalLayer {
     depthFade:     true,
   };
 
-  constructor(p, texture, sprites, y, h) {
-    this.#p       = p;
-    this.#texture = texture;
-    this.#y       = y;
-    this.#h       = h;
+  // textureH: how far the dark background extends (defaults to h).
+  // Pass a smaller textureH to stop the background at the crystal/gel boundary
+  // while still placing crystals further down into the gel.
+  constructor(p, texture, sprites, y, h, textureH = h) {
+    this.#p        = p;
+    this.#texture  = texture;
+    this.#y        = y;
+    this.#h        = h;
+    this.#textureH = textureH;
 
     for (let i = 0; i < CRYSTAL_COUNT; i++) {
       const x           = p.random(p.width);
@@ -53,7 +58,8 @@ export class CrystalLayer {
     }
   }
 
-  draw() {
+  // Draw only the dark background / texture — call this before the gel layer.
+  drawBackground() {
     if (!this.params.visible) return;
 
     const p   = this.#p;
@@ -61,27 +67,31 @@ export class CrystalLayer {
 
     ctx.save();
     ctx.beginPath();
-    ctx.rect(0, this.#y, p.width, this.#h);
+    ctx.rect(0, this.#y, p.width, this.#textureH);
     ctx.clip();
 
-    // Background: texture tile or solid dark fill
     if (this.#texture) {
-      const scale   = this.#h / this.#texture.height;
+      const scale   = this.#textureH / this.#texture.height;
       const scaledW = this.#texture.width * scale;
       const offset  = ((this.#texOffsetX % scaledW) + scaledW) % scaledW;
       for (let x = -scaledW + offset; x < p.width + scaledW; x += scaledW) {
-        p.image(this.#texture, x, this.#y, scaledW, this.#h);
+        p.image(this.#texture, x, this.#y, scaledW, this.#textureH);
       }
     } else {
       p.push();
       p.fill(10, 5, 20);
       p.noStroke();
-      p.rect(0, this.#y, p.width, this.#h);
+      p.rect(0, this.#y, p.width, this.#textureH);
       p.pop();
     }
 
-    for (const c of this.#crystals) c.draw(this.params.depthFade);
-
     ctx.restore();
+  }
+
+  // Draw crystal sprites — call this after the gel layer so crystals sit on top.
+  // No clip applied: sprites near the boundary won't be cut off.
+  drawCrystals() {
+    if (!this.params.visible) return;
+    for (const c of this.#crystals) c.draw(this.params.depthFade);
   }
 }
