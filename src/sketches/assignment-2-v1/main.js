@@ -2,6 +2,7 @@ import p5 from "p5";
 import ml5 from "ml5";
 import Matter from "matter-js";
 import { HeadBubble } from "./HeadBubble.js";
+import { GelStrip } from "./GelStrip.js";
 
 new p5((p) => {
 const W = 640;
@@ -50,6 +51,7 @@ const H = 480;
   }
 
   let headBubble;
+  let gelStrip;
   let startTime = null;
   let frozenPhaseStart = null;
   let frozenPose = null;
@@ -61,6 +63,7 @@ const H = 480;
   p.setup = () => {
     p.createCanvas(W, H);
     headBubble = new HeadBubble(p);
+    gelStrip = new GelStrip(p, W, H);
 
     bodyPose = ml5.bodyPose("MoveNet", { flipped: true }, () => {
       modelReady = true;
@@ -104,7 +107,6 @@ const H = 480;
       // p.scale(1, 1);
       p.image(video, 0, 0, W, H);
       p.filter(p.GRAY);
-      p.filter(p.ERODE);
       p.pop();
     }
 
@@ -113,6 +115,8 @@ const H = 480;
       drawSkeleton(pose);
       headBubble.draw();
     }
+    gelStrip.update(poses);
+    gelStrip.draw();
 
       if (!cameraReady || statusMessage) {
         p.fill(255);
