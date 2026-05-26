@@ -83,19 +83,26 @@ new p5((p) => {
   function buildGUI() {
     gui = new GUI({ title: 'Parameters' });
 
-    const appFolder = gui.addFolder('Input / Debug').close();
+    const appFolder = gui.addFolder('Input / Debug');
     appFolder.add(appParams, 'inputSource', ['face', 'mouse', 'hand'])
       .name('Input Source')
       .onChange(switchInput);
     appFolder.add(appParams, 'showDebugOverlay').name('Show Debug Overlay');
+    // ── Input → wave mapping ──────────────────────────────────────────
+    // signal.x (canvas px) → inputX (world coords) → radial wave origin
+    // |signal.accelX| × boostScale → added to ampRadial → bigger ripples on fast moves
+    // boostDecay EMA smooths the boost so ripples swell/fade rather than snap
+    appFolder.add(waveSurface.params, 'accelBoostScale', 0, 1000, 10)
+      .name('Accel → Radial Boost');
+    appFolder.add(waveSurface.params, 'accelBoostDecay', 0, 0.99, 0.01)
+      .name('Boost Decay (EMA)');
 
-    const waveFolder = gui.addFolder('Wave Surface');
-    waveFolder.add(waveSurface.params, 'ampLinear',      0,     30,    0.5  ).name('Amp Linear');
-    waveFolder.add(waveSurface.params, 'ampRadial',      0,     60,    0.5  ).name('Amp Radial');
-    waveFolder.add(waveSurface.params, 'radialDecay',    0.3,   1.0,   0.05 ).name('Radial Decay');
-    waveFolder.add(waveSurface.params, 'kLinear',        0.005, 0.04,  0.001).name('k Linear');
-    waveFolder.add(waveSurface.params, 'omegaLinear',    0.2,   3.0,   0.1  ).name('Omega Linear');
-    waveFolder.add(waveSurface.params, 'accelBoostScale',0,     1000,  10   ).name('Accel → Radial Boost');
+    const waveFolder = gui.addFolder('Wave Surface').close();
+    waveFolder.add(waveSurface.params, 'ampLinear',   0,     30,    0.5  ).name('Amp Linear');
+    waveFolder.add(waveSurface.params, 'ampRadial',   0,     60,    0.5  ).name('Amp Radial');
+    waveFolder.add(waveSurface.params, 'radialDecay', 0.3,   1.0,   0.05 ).name('Radial Decay');
+    waveFolder.add(waveSurface.params, 'kLinear',     0.005, 0.04,  0.001).name('k Linear');
+    waveFolder.add(waveSurface.params, 'omegaLinear', 0.2,   3.0,   0.1  ).name('Omega Linear');
 
     const nerveFolder = gui.addFolder('Nerve Layer').close();
     nerveFolder.add(nerveLayer.params, 'visible').name('Visible');
@@ -120,7 +127,7 @@ new p5((p) => {
     nerveLayer.update(signal);
     nerveLayer.draw();
 
-    if (appParams.showDebugOverlay) debugOverlay.draw(signal);
+    if (appParams.showDebugOverlay) debugOverlay.draw(signal, { video, activeInput });
 
     // fps counter
     p.fill(255, 255, 255, 120);

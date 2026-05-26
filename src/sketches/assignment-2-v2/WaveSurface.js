@@ -20,15 +20,18 @@ const gmap = (v, a1, b1, a2, b2) => a2 + (v - a1) / (b1 - a1) * (b2 - a2);
 
 export class WaveSurface {
   params = {
-    ampLinear:      4,
-    kLinear:        0.012,
-    omegaLinear:    1.0,
-    phaseLinear:    0,
-    ampRadial:      9.5,
-    kRadial:        0.025,
-    omegaRadial:    1.8,
-    radialDecay:    0.45,
-    accelBoostScale: 300,  // maps |accelX| → extra ampRadial
+    // Wave physics
+    ampLinear:       4,
+    kLinear:         0.012,
+    omegaLinear:     1.0,
+    phaseLinear:     0,
+    ampRadial:       9.5,
+    kRadial:         0.025,
+    omegaRadial:     1.8,
+    radialDecay:     0.45,
+    // Input → wave mapping (exposed in Input/Debug GUI folder)
+    accelBoostScale: 300,  // |accelX| × scale → added to ampRadial each frame
+    accelBoostDecay: 0.85, // EMA factor: how long the boost lingers (0=instant, 1=forever)
   };
 
   #crystalImgs;
@@ -61,8 +64,12 @@ export class WaveSurface {
   // Signal → wave input. canvasW used to remap x to world space.
   update(signal, canvasW) {
     if (signal && !signal.noSignal) {
-      this.#inputX     = (signal.x / canvasW - 0.5) * GRID_WIDTH;
-      this.#accelBoost = Math.abs(signal.accelX) * this.params.accelBoostScale;
+      // Position: map canvas x → world inputX, which centres the radial ripple
+      this.#inputX = (signal.x / canvasW - 0.5) * GRID_WIDTH;
+      // Acceleration: |accelX| drives extra radial amplitude, smoothed by EMA decay
+      const target = Math.abs(signal.accelX) * this.params.accelBoostScale;
+      this.#accelBoost = this.#accelBoost * this.params.accelBoostDecay
+                       + target * (1 - this.params.accelBoostDecay);
     }
   }
 
@@ -121,10 +128,22 @@ export class WaveSurface {
     gfx.fill(255);
     gfx.drawingContext.depthMask(false);
 
+    const EPS = 2.0; // world-unit step for finite-difference normal
+
     for (const c of this.#crystals) {
-      const wy = this.#waveHeight(c.wx, c.wz, t);
+      const wy  = this.#waveHeight(c.wx, c.wz, t);
+      const dhx = (this.#waveHeight(c.wx + EPS, c.wz, t) - wy) / EPS;
+      const dhz = (this.#waveHeight(c.wx, c.wz + EPS, t) - wy) / EPS;
+
+      // Inward surface normal is (dhx, 1, dhz); align crystal's Y-axis with it.
+      // tiltAngle = atan(slope), rotation axis = (dhz, 0, -dhx) normalised.
+      const sl = Math.sqrt(dhx * dhx + dhz * dhz);
+
       gfx.push();
       gfx.translate(c.wx, -wy, c.wz);
+      if (sl > 1e-6) {
+        gfx.rotate(Math.atan2(sl, 1), [dhz / sl, 0, -dhx / sl]);
+      }
       gfx.rotateY(c.rotY);
       gfx.texture(c.img);
       gfx.plane(c.sz, c.sz * c.aspect);

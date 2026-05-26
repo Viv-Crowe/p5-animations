@@ -34,5 +34,6 @@ export class FaceTracker {
     this.#state = this.#smoother.process(rawX, rawY);
   }
 
-  get state() { return this.#state; }
+  get state()  { return this.#state; }
+  get faces()  { return this.#faces; }
 }

@@ -38,5 +38,6 @@ export class HandInput {
     this.#state = this.#smoother.process(tip.x, tip.y);
   }
 
-  get state() { return this.#state; }
+  get state()  { return this.#state; }
+  get hands()  { return this.#hands; }
 }

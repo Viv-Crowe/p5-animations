@@ -1,70 +1,200 @@
-// Draws a compact strip at the top of the canvas showing
-// the two key interaction parameters: tracked X position and horizontal acceleration.
+// Debug overlay: live webcam with MediaPipe landmarks (left) +
+// accelX scrolling time-series plot (right, axis grows as data accumulates).
 export class DebugOverlay {
   #p;
-  static H = 36;
+  #accelHistory = [];
+  #timeHistory  = [];   // parallel ms timestamps
+  #yMax = 0.005;        // auto-scales to peak accelX seen
+  static H = 120;
+  static #WINDOW_MS   = 30_000; // fixed 30-second rolling window
+  static #MAX_SAMPLES = 2000;   // safety cap (~30 s at 60 fps)
+
+  // MediaPipe hand skeleton connections
+  static #HAND_CONN = [
+    [0,1],[1,2],[2,3],[3,4],
+    [0,5],[5,6],[6,7],[7,8],
+    [5,9],[9,10],[10,11],[11,12],
+    [9,13],[13,14],[14,15],[15,16],
+    [13,17],[0,17],[17,18],[18,19],[19,20],
+  ];
 
   constructor(p) {
     this.#p = p;
   }
 
-  draw(signal) {
-    const p  = this.#p;
-    const W  = p.width;
-    const H  = DebugOverlay.H;
+  // opts: { video, activeInput }
+  draw(signal, opts = {}) {
+    const { video, activeInput } = opts;
+    const p   = this.#p;
+    const W   = p.width;
+    const H      = DebugOverlay.H;
+    const WINDOW = DebugOverlay.#WINDOW_MS;
+    const MAX    = DebugOverlay.#MAX_SAMPLES;
+
+    // ── Accumulate history (fixed 30-second rolling window) ──────────
+    const now = p.millis();
+    if (signal && !signal.noSignal) {
+      this.#accelHistory.push(signal.accelX);
+      this.#timeHistory.push(now);
+      const abs = Math.abs(signal.accelX);
+      if (abs > this.#yMax) this.#yMax = abs;
+      else this.#yMax = Math.max(this.#yMax * 0.9995, 0.005);
+    }
+    // Trim samples older than the 30-second window
+    let trim = 0;
+    while (trim < this.#timeHistory.length && now - this.#timeHistory[trim] > WINDOW) trim++;
+    if (trim > 0) { this.#accelHistory.splice(0, trim); this.#timeHistory.splice(0, trim); }
+    if (this.#accelHistory.length > MAX) { this.#accelHistory.splice(0, 1); this.#timeHistory.splice(0, 1); }
 
     p.push();
 
-    // Background
+    // ── Video panel ──────────────────────────────────────────────────
+    const vW     = video?.elt?.videoWidth  || video?.width  || 640;
+    const vH     = video?.elt?.videoHeight || video?.height || 480;
+    const thumbW = Math.round(H * vW / vH);
+
     p.noStroke();
-    p.fill(0, 0, 0, 180);
-    p.rect(0, 0, W, H);
+    p.fill(8, 12, 22);
+    p.rect(0, 0, thumbW, H);
 
-    // Centre divider
-    p.stroke(60);
-    p.strokeWeight(1);
-    p.line(W / 2, 0, W / 2, H);
-
-    if (!signal || signal.noSignal) {
-      p.fill(120);
-      p.noStroke();
-      p.textSize(11);
-      p.textAlign(p.LEFT, p.CENTER);
-      p.text('no signal', 10, H / 2);
+    if (video) {
+      // Mirror the video so it matches the flipped ml5 coordinate space
+      p.push();
+      p.translate(thumbW, 0);
+      p.scale(-1, 1);
+      p.image(video, 0, 0, thumbW, H);
       p.pop();
-      return;
+
+      const sx = thumbW / vW;
+      const sy = H      / vH;
+
+      // ── Face landmarks ─────────────────────────────────────────────
+      const faces = activeInput?.faces;
+      if (faces?.length) {
+        const box = faces[0].box;
+        if (box) {
+          p.noFill();
+          p.stroke(55, 220, 95);
+          p.strokeWeight(1.5);
+          p.rect(box.xMin * sx, box.yMin * sy, box.width * sx, box.height * sy);
+
+          p.noStroke();
+          p.fill(255, 220, 0);
+          p.circle((box.xMin + box.width / 2) * sx,
+                   (box.yMin + box.height / 2) * sy, 6);
+        }
+      }
+
+      // ── Hand skeleton ──────────────────────────────────────────────
+      const hands = activeInput?.hands;
+      if (hands?.length) {
+        const kps = hands[0].keypoints;
+        if (kps) {
+          p.stroke(60, 140, 255, 200);
+          p.strokeWeight(1);
+          for (const [a, b] of DebugOverlay.#HAND_CONN) {
+            if (kps[a] && kps[b]) {
+              p.line(kps[a].x * sx, kps[a].y * sy,
+                     kps[b].x * sx, kps[b].y * sy);
+            }
+          }
+          p.noStroke();
+          for (let i = 0; i < kps.length; i++) {
+            if (!kps[i]) continue;
+            const isIndex = i === 8;
+            p.fill(isIndex ? p.color(255, 220, 0) : p.color(60, 180, 255));
+            p.circle(kps[i].x * sx, kps[i].y * sy, isIndex ? 8 : 4);
+          }
+        }
+      }
+
+      // No-signal dimmer
+      if (!signal || signal.noSignal) {
+        p.fill(0, 0, 0, 110);
+        p.noStroke();
+        p.rect(0, 0, thumbW, H);
+        p.fill(160);
+        p.textSize(10);
+        p.textAlign(p.CENTER, p.CENTER);
+        p.text('no signal', thumbW / 2, H / 2);
+      }
     }
 
-    // ── Position rail (top half) ──────────────────────────────────
-    const railY  = H * 0.28;
-    const dotX   = p.map(signal.x, 0, W, 4, W - 4);
-
-    p.stroke(50);
+    // Thumbnail border
+    p.noFill();
+    p.stroke(40, 60, 100);
     p.strokeWeight(1);
-    p.line(0, railY, W, railY);
+    p.rect(0, 0, thumbW, H);
+
+    // ── accelX plot ──────────────────────────────────────────────────
+    const plotX = thumbW;
+    const plotW = W - thumbW;
+    const n     = this.#accelHistory.length;
 
     p.noStroke();
-    p.fill(255, 230, 60);
-    p.circle(dotX, railY, 8);
+    p.fill(5, 8, 18, 220);
+    p.rect(plotX, 0, plotW, H);
 
-    // ── Acceleration bar (bottom half) ───────────────────────────
-    const barY   = H * 0.72;
-    const maxA   = 4;            // px/frame² treated as full-scale
-    const barLen = p.map(Math.abs(signal.accelX), 0, maxA, 0, W * 0.45, true);
-    const isRight = signal.accelX >= 0;
-    const barX   = isRight ? W / 2 : W / 2 - barLen;
+    const tWindowStart = now - WINDOW;
 
-    p.fill(isRight ? p.color(80, 160, 255, 220) : p.color(255, 110, 60, 220));
-    p.rect(barX, barY - 5, barLen, 10, 2);
+    // Zero line — always full width
+    p.stroke(35, 55, 90);
+    p.strokeWeight(1);
+    p.line(plotX, H / 2, plotX + plotW, H / 2);
 
-    // ── Labels ───────────────────────────────────────────────────
-    p.fill(180);
+    // Tick marks every 5 seconds
+    p.stroke(30, 48, 80);
+    p.strokeWeight(1);
+    for (let s = 5; s < 30; s += 5) {
+      const tx = plotX + (1 - s / 30) * plotW;
+      p.line(tx, H / 2 - 4, tx, H / 2 + 4);
+    }
+
+    if (n > 1) {
+      p.stroke(90, 190, 255, 210);
+      p.strokeWeight(1);
+      p.noFill();
+      p.beginShape();
+      for (let i = 0; i < n; i++) {
+        const x = plotX + (this.#timeHistory[i] - tWindowStart) / WINDOW * plotW;
+        const y = p.map(this.#accelHistory[i], -this.#yMax, this.#yMax, H - 6, 6);
+        p.vertex(x, y);
+      }
+      p.endShape();
+    }
+
+    // Time axis labels
     p.noStroke();
-    p.textSize(10);
-    p.textAlign(p.RIGHT, p.CENTER);
-    p.text(`x ${signal.x.toFixed(0)}`, W - 6, H * 0.28);
-    p.textAlign(p.RIGHT, p.CENTER);
-    p.text(`ax ${signal.accelX.toFixed(3)}`, W - 6, H * 0.72);
+    p.textSize(8);
+    p.fill(38, 58, 90);
+    p.textAlign(p.LEFT, p.BOTTOM);
+    p.text('30s ago', plotX + 3, H - 2);
+    p.textAlign(p.RIGHT, p.BOTTOM);
+    p.text('now', plotX + plotW - 3, H - 2);
+
+    // Labels
+    p.noStroke();
+    p.textSize(9);
+    p.fill(65, 105, 160);
+    p.textAlign(p.LEFT, p.TOP);
+    p.text('accelX', plotX + 4, 3);
+
+    if (signal && !signal.noSignal) {
+      p.textAlign(p.LEFT, p.BOTTOM);
+      p.fill(140, 190, 255);
+      p.text(signal.accelX.toFixed(4), plotX + 4, H - 3);
+
+      p.textSize(8);
+      p.fill(50, 80, 120);
+      p.textAlign(p.RIGHT, p.TOP);
+      p.text(`+${this.#yMax.toFixed(3)}`, plotX + plotW - 3, 2);
+      p.textAlign(p.RIGHT, p.BOTTOM);
+      p.text(`-${this.#yMax.toFixed(3)}`, plotX + plotW - 3, H - 2);
+    } else {
+      p.fill(80);
+      p.textAlign(p.LEFT, p.CENTER);
+      p.text('no signal', plotX + 4, H / 2);
+    }
 
     p.pop();
   }
