@@ -20,25 +20,25 @@ const gmap = (v, a1, b1, a2, b2) => a2 + (v - a1) / (b1 - a1) * (b2 - a2);
 
 export class WaveSurface {
   params = {
-    // Wave physics
-    ampLinear:       4,
-    kLinear:         0.012,
-    omegaLinear:     1.0,
-    phaseLinear:     0,
-    ampRadial:       9.5,
-    kRadial:         0.025,
-    omegaRadial:     1.8,
-    radialDecay:     0.45,
-    // Input → wave mapping (exposed in Input/Debug GUI folder)
-    accelBoostScale: 300,  // |accelX| × scale → added to ampRadial each frame
-    accelBoostDecay: 0.85, // EMA factor: how long the boost lingers (0=instant, 1=forever)
+    // Gel surface physics
+    amplitudeScale:  300,   // rolling |input| × this → surface height
+    muScale:         1500,  // rolling input × this → peak X world position
+    sigma:           180,   // bell half-width in world units
+    asymmetryScale:  0.5,   // 0 = symmetric Gaussian, 1 = strong gamma-like tail
+    responseAlpha:   0.95,  // EMA factor (0.99 = sluggish, 0.8 = snappy)
+    // Toggle: which signal drives amplitude and peak position
+    useVelocity:     false, // false = accelX, true = velX
+    // Idle background undulation (always present)
+    bgAmplitude:     2.5,
+    bgSpeed:         0.4,
+    bgFreq:          0.008,
   };
 
   #crystalImgs;
   #crystals = [];
   #heights;
-  #inputX      = 0;
-  #accelBoost  = 0;
+  #muEMA  = 0;   // EMA of signed input  (direction + magnitude)
+  #ampEMA = 0;   // EMA of |input|        (magnitude only)
 
   constructor(crystalImgs) {
     this.#crystalImgs = crystalImgs;
@@ -61,33 +61,38 @@ export class WaveSurface {
     this.#crystals.sort((a, b) => b.wz - a.wz);
   }
 
-  // Signal → wave input. canvasW used to remap x to world space.
-  update(signal, canvasW) {
+  // Each frame: feed smoothed signal, pick accelX or velX based on toggle.
+  update(signal, _canvasW) {
     if (signal && !signal.noSignal) {
-      // Position: map canvas x → world inputX, which centres the radial ripple
-      this.#inputX = (signal.x / canvasW - 0.5) * GRID_WIDTH;
-      // Acceleration: |accelX| drives extra radial amplitude, smoothed by EMA decay
-      const target = Math.abs(signal.accelX) * this.params.accelBoostScale;
-      this.#accelBoost = this.#accelBoost * this.params.accelBoostDecay
-                       + target * (1 - this.params.accelBoostDecay);
+      const input = this.params.useVelocity ? signal.velX : signal.accelX;
+      const a     = this.params.responseAlpha;
+      this.#muEMA  = this.#muEMA  * a + input          * (1 - a);
+      this.#ampEMA = this.#ampEMA * a + Math.abs(input) * (1 - a);
     }
   }
 
+  // Asymmetric bell (gamma-like) + gentle background roll.
+  //
+  // The bell's peak sits at mu = muEMA × muScale.
+  // Amplitude = ampEMA × amplitudeScale.
+  // The side facing the direction of displacement is steeper (smaller σ);
+  // the trailing side has a longer tail (larger σ) — mimicking gel drag.
   #waveHeight(wx, wz, t) {
-    const p         = this.params;
-    const ampRadial = p.ampRadial + this.#accelBoost;
-    const inputX    = this.#inputX;
+    const p  = this.params;
+    const mu = this.#muEMA  * p.muScale;
+    const A  = this.#ampEMA * p.amplitudeScale;
 
-    const linear = p.ampLinear
-      * Math.sin(p.kLinear * wx - p.omegaLinear * t + p.phaseLinear);
+    const d       = wx - mu;
+    const dir     = Math.sign(this.#muEMA); // +1 right, -1 left, 0 at rest
+    // Leading edge (same side as displacement): steeper. Trailing: wider.
+    const sigmaEff = p.sigma * Math.max(0.1,
+      1 - p.asymmetryScale * 0.45 * dir * Math.sign(d));
+    const bell = A * Math.exp(-(d * d) / (2 * sigmaEff * sigmaEff));
 
-    const dx    = wx - inputX;
-    const r     = Math.sqrt(dx * dx + wz * wz);
-    const decay = 1.0 / Math.pow(Math.max(r, 0.5), p.radialDecay);
-    const radial = ampRadial * decay
-      * Math.sin(p.kRadial * r - p.omegaRadial * t);
+    // Gentle background wave rolls in the Z direction for idle visual interest
+    const bg = p.bgAmplitude * Math.sin(p.bgFreq * wz - p.bgSpeed * t);
 
-    return linear + radial;
+    return bell + bg;
   }
 
   draw(gfx, t) {

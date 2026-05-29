@@ -12,46 +12,48 @@ These control how raw tracking data is turned into wave disturbance.
 |---|---|---|---|---|
 | `appParams.inputSource` | Input Source | `'face'` | face / mouse / hand | Which input drives the signal. Falls back to mouse if the camera isn't ready yet. |
 | `appParams.showDebugOverlay` | Show Debug Overlay | `true` | toggle | Shows/hides the 120 px debug strip at the top of the canvas. |
-| `waveSurface.params.accelBoostScale` | Accel → Radial Boost | `300` | 0 – 1000 | Multiplier applied to `|accelX|` each frame. The result is added to `ampRadial`, so fast lateral movement creates larger radial ripples. Set to 0 to make the wave unresponsive to motion speed. |
-| `waveSurface.params.accelBoostDecay` | Boost Decay (EMA) | `0.85` | 0 – 0.99 | Exponential moving average factor for the boost. `0` = instant (boost drops to zero the frame motion stops). `0.95` = ripples swell and fade over several seconds. Formula per frame: `boost = boost × decay + target × (1 − decay)`. |
+| `waveSurface.params.useVelocity` | Use Velocity (not Accel) | `false` | toggle | Switches the input signal driving the gel surface. `false` = `accelX`, `true` = `velX`. |
+| `waveSurface.params.responseAlpha` | Response EMA | `0.95` | 0.5 – 0.99 | EMA factor for both the peak position and amplitude rolling averages. Higher = more sluggish/inertial response. |
 
-### How input maps to the wave
+### How input maps to the gel surface
 
-1. **Position → ripple origin**  
-   `signal.x` (canvas pixels, 0 → width) is mapped linearly to `inputX` in world space (−400 → +400 world units). `inputX` is the centre of the radial ripple — so the disturbance follows the tracked point left/right across the surface.
+Both the **peak position** and the **amplitude** of the bell curve are driven by a single rolling average (EMA) of the chosen input signal:
 
-2. **Acceleration → ripple size**  
-   Each frame, `|signal.accelX|` is multiplied by `accelBoostScale` to get a `target` boost. This target is blended into `#accelBoost` via the EMA: `#accelBoost = #accelBoost × decay + target × (1 − decay)`. The boost is added directly to `ampRadial` inside `waveHeight()`, so faster movement = bigger ripples, lingering based on `accelBoostDecay`.
+1. **Signed EMA → peak position**  
+   `#muEMA = #muEMA × α + input × (1−α)` — the signed running average of `accelX` (or `velX`). Multiplied by `muScale` to get the peak X position in world space. When the user moves right, `muEMA` grows positive → bell peak shifts right. When motion stops, EMA decays back toward zero → peak drifts back to centre.
+
+2. **Unsigned EMA → amplitude**  
+   `#ampEMA = #ampEMA × α + |input| × (1−α)` — the magnitude EMA. Multiplied by `amplitudeScale` → bell height. Fast movement = tall bell. Stillness = flat surface (only idle background wave remains).
+
+3. **Asymmetry (gamma-like shape)**  
+   The leading edge (same direction as current displacement) uses a smaller σ (steeper). The trailing edge uses a larger σ (longer tail). This mimics the physical gel: the membrane is compressed on the leading side and stretched on the trailing side.
 
 ---
 
-## Wave Surface panel (GUI)
+## Gel Surface panel (GUI)  *(branch: feat/gel-surface)*
 
-Wave physics parameters. These affect the idle/base wave shape regardless of input.
+Replaces the oscillating wave physics with a gamma-like bell curve whose peak and amplitude track the user's movement.
 
 | Parameter | GUI label | Default | Range | Effect |
 |---|---|---|---|---|
-| `waveSurface.params.ampLinear` | Amp Linear | `4` | 0 – 30 | Amplitude of the background planar wave that rolls across the entire surface (left→right). |
-| `waveSurface.params.kLinear` | k Linear | `0.012` | 0.005 – 0.04 | Spatial frequency of the linear wave. Higher = tighter wave crests. |
-| `waveSurface.params.omegaLinear` | Omega Linear | `1.0` | 0.2 – 3.0 | Angular frequency (speed) of the linear wave. Higher = faster oscillation. |
-| `waveSurface.params.ampRadial` | Amp Radial | `9.5` | 0 – 60 | Baseline amplitude of the radial ripple emanating from `inputX`. Combined with `accelBoost` at runtime. |
-| `waveSurface.params.kRadial` | (code only) | `0.025` | — | Spatial frequency of the radial wave. |
-| `waveSurface.params.omegaRadial` | (code only) | `1.8` | — | Angular frequency of the radial wave. |
-| `waveSurface.params.radialDecay` | Radial Decay | `0.45` | 0.3 – 1.0 | Power-law decay exponent: `1 / r^radialDecay`. Lower = ripples carry further from origin. Higher = ripples die out quickly. |
+| `waveSurface.params.amplitudeScale` | Amplitude Scale | `300` | 0 – 1000 | `#ampEMA × this` → bell height. Set higher for more dramatic surface deformation. |
+| `waveSurface.params.muScale` | Peak Position Scale | `1500` | 0 – 5000 | `#muEMA × this` → peak X in world units. Higher = bell shifts further per unit of input. |
+| `waveSurface.params.sigma` | Bell Width (σ) | `180` | 10 – 400 | Half-width of the bell in world units. σ=180 covers ~45% of the 800-unit grid width. |
+| `waveSurface.params.asymmetryScale` | Asymmetry | `0.5` | 0 – 1 | `0` = symmetric Gaussian. `1` = strong gamma-like shape (steep leading edge, long trailing tail). |
+| `waveSurface.params.bgAmplitude` | Idle Wave Amp | `2.5` | 0 – 20 | Amplitude of the background roll when there is no motion. |
+| `waveSurface.params.bgSpeed` | Idle Wave Speed | `0.4` | 0 – 2 | Angular frequency of the background Z-direction roll. |
+| `waveSurface.params.bgFreq` | Idle Wave Freq | `0.008` | 0 – 0.03 | Spatial frequency of the background wave. |
 
-### Wave height formula
+### Height formula (gel surface)
 
 ```
-h(wx, wz, t) =
-    ampLinear  × sin(kLinear × wx − omegaLinear × t)           // planar wave
-  + (ampRadial + accelBoost)
-      × (1 / max(r, 0.5)^radialDecay)                          // falloff
-      × sin(kRadial × r − omegaRadial × t)                     // radial ripple
+σ_eff = σ × max(0.1,  1 − asymmetry × 0.45 × sign(muEMA) × sign(d))
+bell  = ampEMA × amplitudeScale × exp(−d² / (2 σ_eff²))
+bg    = bgAmplitude × sin(bgFreq × wz − bgSpeed × t)
+h     = bell + bg
 ```
 
-where `r = sqrt((wx − inputX)² + wz²)` and `wx`, `wz` are world-space coordinates.
-
-Vertices are rendered at `y = −h(wx, wz, t)` so positive height = upward in WEBGL space.
+where `d = wx − muEMA × muScale` and `wz` is the world depth coordinate.
 
 ---
 
