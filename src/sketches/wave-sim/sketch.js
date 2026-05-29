@@ -1,8 +1,8 @@
 // ── Grid ─────────────────────────────────────────────────────────────────────
-const GRID_X     = 60;    // vertices along x
-const GRID_Z     = 60;    // vertices along z (depth)
-const GRID_WIDTH = 800;   // world units, centred on x = 0
-const GRID_DEPTH = 800;   // world units, z = 0 (near) → GRID_DEPTH (far)
+const GRID_X     = 60;
+const GRID_Z     = 60;
+const GRID_WIDTH = 800;
+const GRID_DEPTH = 800;
 
 // ── Camera ────────────────────────────────────────────────────────────────────
 const CAM_X  =   0,  CAM_Y  = -30,  CAM_Z  = -150;
@@ -23,58 +23,81 @@ const IDLE_STATE = {
 
 let PARAMS = { ...IDLE_STATE };
 
-// ── Pre-allocated height cache ────────────────────────────────────────────────
+// ── Crystals ──────────────────────────────────────────────────────────────────
+const CRYSTAL_COUNT = 600;
+let crystalImgs = [];
+let crystals    = [];
+
+// ── Height cache ──────────────────────────────────────────────────────────────
 const heights = Array.from({ length: GRID_Z }, () => new Float32Array(GRID_X));
 
-// ── GUI state ─────────────────────────────────────────────────────────────────
+// ── GUI ───────────────────────────────────────────────────────────────────────
 const sliders = {};
 const labels  = {};
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Wave height function — single source of truth for renderer + physics.
-//
-// @param {number} wx      world x
-// @param {number} wz      world z
-// @param {number} t       time in seconds
-// @param {number} inputX  disturbance source x (world units)
-// @param {object} params  PARAMS object
-// @returns {number}       y displacement (positive = up)
-// ─────────────────────────────────────────────────────────────────────────────
 function waveHeight(wx, wz, t, inputX, params) {
-  // Planar wave: wavefronts are lines of constant z
   const linear = params.ampLinear
     * Math.sin(params.kLinear * wx - params.omegaLinear * t + params.phaseLinear);
 
-  // Radial ripple: circular, decaying with distance from (inputX, 0)
-  const dx    = wx - inputX;
-  const r     = Math.sqrt(dx * dx + wz * wz);
-  const decay = 1.0 / Math.pow(Math.max(r, 0.5), params.radialDecay);
-  const radial = params.ampRadial
-    * decay
+  const dx     = wx - inputX;
+  const r      = Math.sqrt(dx * dx + wz * wz);
+  const decay  = 1.0 / Math.pow(Math.max(r, 0.5), params.radialDecay);
+  const radial = params.ampRadial * decay
     * Math.sin(params.kRadial * r - params.omegaRadial * t);
 
   return linear + radial;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+function preload() {
+  for (let i = 1; i <= 3; i++) {
+    crystalImgs.push(loadImage(`./assets/crystal-${i}.png`));
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+function initCrystals() {
+  crystals = [];
+  for (let i = 0; i < CRYSTAL_COUNT; i++) {
+    const img    = crystalImgs[Math.floor(random(crystalImgs.length))];
+    const sz     = random(10, 38);
+    const aspect = (img && img.width > 0) ? img.height / img.width : 1;
+    crystals.push({
+      wx:     random(-GRID_WIDTH / 2, GRID_WIDTH / 2),
+      wz:     random(0, GRID_DEPTH),
+      sz,
+      aspect,
+      img,
+      rotY:   random(TWO_PI),
+    });
+  }
+  // Back-to-front sort for correct alpha blending
+  crystals.sort((a, b) => b.wz - a.wz);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 function setup() {
   createCanvas(windowWidth, windowHeight, WEBGL);
   perspective(PI / 3.5, width / height, 1, 5000);
+  textureMode(IMAGE);
 
-  // ── GUI panel ──────────────────────────────────────────────────────────────
+  initCrystals();
+
+  // ── GUI ──────────────────────────────────────────────────────────────────
   const gui = createDiv('');
   gui.position(0, 0);
-  gui.style('position',   'fixed');
-  gui.style('top',        '10px');
-  gui.style('left',       '10px');
-  gui.style('background', 'rgba(0,5,15,0.70)');
-  gui.style('padding',    '10px 14px 12px');
-  gui.style('color',      '#8ab8f0');
-  gui.style('font-family','monospace');
-  gui.style('font-size',  '11px');
-  gui.style('border',     '1px solid rgba(100,160,255,0.18)');
-  gui.style('min-width',  '210px');
-  gui.style('z-index',    '10');
+  gui.style('position',    'fixed');
+  gui.style('top',         '10px');
+  gui.style('left',        '10px');
+  gui.style('background',  'rgba(0,5,15,0.70)');
+  gui.style('padding',     '10px 14px 12px');
+  gui.style('color',       '#8ab8f0');
+  gui.style('font-family', 'monospace');
+  gui.style('font-size',   '11px');
+  gui.style('border',      '1px solid rgba(100,160,255,0.18)');
+  gui.style('min-width',   '210px');
+  gui.style('z-index',     '10');
 
   function addSlider(param, min, max, step, name) {
     const lbl = createP(name);
@@ -97,11 +120,8 @@ function setup() {
 // ─────────────────────────────────────────────────────────────────────────────
 function draw() {
   background(10, 15, 25);
-
-  // Lock camera every frame
   camera(CAM_X, CAM_Y, CAM_Z, LOOK_X, LOOK_Y, LOOK_Z, 0, 1, 0);
 
-  // Sync params + update labels
   for (const [param, sl] of Object.entries(sliders)) {
     PARAMS[param] = sl.value();
     labels[param].el.html(labels[param].name + ': ' + Number(PARAMS[param]).toFixed(3));
@@ -109,7 +129,7 @@ function draw() {
 
   const t = millis() / 1000;
 
-  // Pre-compute all heights (each vertex shared by two strips)
+  // ── Pre-compute heights ───────────────────────────────────────────────────
   for (let j = 0; j < GRID_Z; j++) {
     const wz = map(j, 0, GRID_Z - 1, 0, GRID_DEPTH);
     for (let i = 0; i < GRID_X; i++) {
@@ -118,7 +138,7 @@ function draw() {
     }
   }
 
-  // Render wireframe — one TRIANGLE_STRIP per row pair, alpha fades with depth
+  // ── Wireframe ─────────────────────────────────────────────────────────────
   noFill();
   strokeWeight(0.5);
 
@@ -131,12 +151,29 @@ function draw() {
     beginShape(TRIANGLE_STRIP);
     for (let i = 0; i < GRID_X; i++) {
       const wx = map(i, 0, GRID_X - 1, -GRID_WIDTH / 2, GRID_WIDTH / 2);
-      // p5 WEBGL: negative y = up; wave height is positive = up
       vertex(wx, -heights[j][i],     wz0);
       vertex(wx, -heights[j + 1][i], wz1);
     }
     endShape();
   }
+
+  // ── Crystal sprites ───────────────────────────────────────────────────────
+  noStroke();
+  fill(255);
+  // Disable depth writes so transparent sprites composite correctly
+  drawingContext.depthMask(false);
+
+  for (const c of crystals) {
+    const wy = waveHeight(c.wx, c.wz, t, PARAMS.inputX, PARAMS);
+    push();
+    translate(c.wx, -wy, c.wz);
+    rotateY(c.rotY);
+    texture(c.img);
+    plane(c.sz, c.sz * c.aspect);
+    pop();
+  }
+
+  drawingContext.depthMask(true);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -145,7 +182,7 @@ function windowResized() {
   perspective(PI / 3.5, width / height, 1, 5000);
 }
 
-// ── Public API (for physics engine integration) ───────────────────────────────
+// ── Public API ────────────────────────────────────────────────────────────────
 window.getWaveHeight = function(wx, wz) {
   return waveHeight(wx, wz, millis() / 1000, PARAMS.inputX, PARAMS);
 };
