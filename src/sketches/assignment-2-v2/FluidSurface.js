@@ -209,8 +209,7 @@ export class FluidSurface {
     if (!this.#loaded) return;
 
     if (signal && !signal.noSignal) {
-      // Flip X (×-1) so rightward head movement pushes fluid right
-      this.#simRend.mouseX = -(signal.x / this.#canvas.width) * 2 + 1;
+      this.#simRend.mouseX = (signal.x / this.#canvas.width) * 2 - 1;
       this.#simRend.mouseY = -signal.accelX * this.params.forceMultiplier * 0.05;
     }
 
