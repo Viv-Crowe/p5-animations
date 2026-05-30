@@ -3,7 +3,6 @@
 export class DebugOverlay {
   #p;
   #accelHistory = [];
-  #xHistory     = [];   // normalised position (signal.x / canvas width) [0–1]
   #timeHistory  = [];   // parallel ms timestamps
   #yMax = 0.005;        // auto-scales to peak accelX seen
   static H = 120;
@@ -36,7 +35,6 @@ export class DebugOverlay {
     const now = p.millis();
     if (signal && !signal.noSignal) {
       this.#accelHistory.push(signal.accelX);
-      this.#xHistory.push(signal.x / W);       // normalise to [0, 1]
       this.#timeHistory.push(now);
       const abs = Math.abs(signal.accelX);
       if (abs > this.#yMax) this.#yMax = abs;
@@ -47,12 +45,10 @@ export class DebugOverlay {
     while (trim < this.#timeHistory.length && now - this.#timeHistory[trim] > WINDOW) trim++;
     if (trim > 0) {
       this.#accelHistory.splice(0, trim);
-      this.#xHistory.splice(0, trim);
       this.#timeHistory.splice(0, trim);
     }
     if (this.#accelHistory.length > MAX) {
       this.#accelHistory.splice(0, 1);
-      this.#xHistory.splice(0, 1);
       this.#timeHistory.splice(0, 1);
     }
 
@@ -161,18 +157,6 @@ export class DebugOverlay {
     }
 
     if (n > 1) {
-      // ── Smoothed position trace (amber) — x spans bottom→top as 0→1 ──
-      p.stroke(255, 165, 50, 130);
-      p.strokeWeight(1.5);
-      p.noFill();
-      p.beginShape();
-      for (let i = 0; i < n; i++) {
-        const x = plotX + (this.#timeHistory[i] - tWindowStart) / WINDOW * plotW;
-        const y = p.map(this.#xHistory[i], 0, 1, H - 6, 6);
-        p.vertex(x, y);
-      }
-      p.endShape();
-
       // ── accelX trace (blue) — centred on zero ─────────────────────────
       p.stroke(90, 190, 255, 210);
       p.strokeWeight(1);
@@ -199,13 +183,9 @@ export class DebugOverlay {
     p.noStroke();
     p.textSize(9);
     if (signal && !signal.noSignal) {
-      p.fill(255, 165, 50);
-      p.textAlign(p.LEFT, p.TOP);
-      p.text(`x  ${(signal.x / W).toFixed(2)}`, plotX + 4, 3);
-
       p.fill(140, 190, 255);
       p.textAlign(p.LEFT, p.TOP);
-      p.text(`ax ${signal.accelX.toFixed(4)}`, plotX + 58, 3);
+      p.text(`ax ${signal.accelX.toFixed(4)}`, plotX + 4, 3);
 
       p.textSize(8);
       p.fill(50, 80, 120);
