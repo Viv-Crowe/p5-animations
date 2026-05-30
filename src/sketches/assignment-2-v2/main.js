@@ -92,6 +92,18 @@ new p5((p) => {
 
     const nerveFolder = gui.addFolder('Nerve Layer').close();
     nerveFolder.add(nerveLayer.params, 'visible').name('Visible');
+
+    const hp = fluidSurface.hairLayer.params;
+    const rebuild = () => fluidSurface.hairLayer.rebuild();
+    const hairFolder = gui.addFolder('Hair Cells').close();
+    hairFolder.add(hp, 'clumpCount',      1,    100,  1   ).name('Clumps').onChange(rebuild);
+    hairFolder.add(hp, 'hairsPerClump',   3,     12,  1   ).name('Hairs / Clump').onChange(rebuild);
+    hairFolder.add(hp, 'hairLength',      0.05,  0.30, 0.01).name('Hair Length').onChange(rebuild);
+    hairFolder.add(hp, 'clumpSize',       0.2,   3.0,  0.1 ).name('Clump Spread').onChange(rebuild);
+    hairFolder.add(hp, 'kinociliumScale', 1.2,   3.0,  0.1 ).name('Kinocilium Scale').onChange(rebuild);
+    hairFolder.add(hp, 'deflectionScale', 0.0,   2.0,  0.1 ).name('Deflection');
+    hairFolder.add(hp, 'baseY',          -15.0,  0.0,  0.5 ).name('Base Y');
+    hairFolder.add(hp, 'frontFraction',   0.1,   1.0,  0.05).name('Front Fraction').onChange(rebuild);
   }
 
   p.draw = () => {

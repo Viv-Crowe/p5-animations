@@ -2,6 +2,8 @@
 // Requires the fluid/*.js scripts loaded as <script> tags before this module.
 // Creates its own WebGL canvas behind the p5 canvas.
 
+import { HairCellLayer } from './HairCellLayer.js';
+
 const GRID_WIDTH  = 111;
 const GRID_HEIGHT = 2;
 const GRID_DEPTH  = 38;
@@ -60,10 +62,12 @@ export class FluidSurface {
   #projectionMatrix;
   #camera;
   #simRend;
+  #hairLayer;
   #loaded = false;
 
   get simulator() { return this.#simRend?.simulator ?? null; }
   get renderer()  { return this.#simRend?.renderer  ?? null; }
+  get hairLayer() { return this.#hairLayer; }
 
   constructor() {
     this.#canvas = document.createElement('canvas');
@@ -88,6 +92,11 @@ export class FluidSurface {
       this.#canvas, this.#wgl, this.#projectionMatrix, this.#camera,
       [GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH],
       () => this.#start()
+    );
+
+    this.#hairLayer = new HairCellLayer(
+      this.#canvas, this.#wgl,
+      GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH
     );
   }
 
@@ -228,6 +237,8 @@ export class FluidSurface {
     }
 
     this.#simRend.update(this.params.timeStep);
+    this.#hairLayer.update(signal);
+    this.#hairLayer.draw(this.#projectionMatrix, this.#camera.getViewMatrix());
   }
 
   resize(w, h) {
