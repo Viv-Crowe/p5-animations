@@ -4,41 +4,29 @@ import { FaceTracker }  from './FaceTracker.js';
 import { MouseInput }   from './MouseInput.js';
 import { HandInput }    from './HandInput.js';
 import { DebugOverlay } from './DebugOverlay.js';
-import { WaveSurface }  from './WaveSurface.js';
+import { FluidSurface } from './FluidSurface.js';
 import { NerveLayer }   from './NerveLayer.js';
-
-const SPRITE_PATHS = [
-  './assets/crystal-1.png',
-  './assets/crystal-2.png',
-  './assets/crystal-3.png',
-];
 
 new p5((p) => {
   let video;
   let faceTracker, mouseInput, handInput, activeInput;
 
-  let waveSurface, nerveLayer, debugOverlay;
-  let waveGfx;   // WEBGL graphics buffer for the wave surface
+  let fluidSurface, nerveLayer, debugOverlay;
   let gui;
-
-  let sprites = [];
 
   const appParams = {
     inputSource:      'face',
     showDebugOverlay: true,
   };
 
-  p.preload = () => {
-    for (const path of SPRITE_PATHS) {
-      sprites.push(p.loadImage(path, () => {}, () => {
-        console.warn(`sprite not found: ${path}`);
-      }));
-    }
-  };
-
   p.setup = () => {
     p.createCanvas(p.windowWidth, p.windowHeight);
     p.pixelDensity(1);
+
+    // Sit on top of the fluid WebGL canvas
+    Object.assign(p.canvas.style, {
+      position: 'fixed', top: '0', left: '0', zIndex: '1',
+    });
 
     buildLayers();
     buildGUI();
@@ -65,13 +53,7 @@ new p5((p) => {
   }
 
   function buildLayers() {
-    // WEBGL buffer — wave surface renders into this
-    if (waveGfx) waveGfx.remove();
-    waveGfx = p.createGraphics(p.width, p.height, p.WEBGL);
-    waveGfx.pixelDensity(1);
-
-    waveSurface = new WaveSurface(sprites);
-    waveSurface.initCrystals(waveGfx);
+    if (!fluidSurface) fluidSurface = new FluidSurface();
 
     const nerveY = p.height * 0.83;
     const nerveH = p.height * 0.17;
@@ -88,20 +70,24 @@ new p5((p) => {
       .name('Input Source')
       .onChange(switchInput);
     appFolder.add(appParams, 'showDebugOverlay').name('Show Debug Overlay');
-    // ── Input → gel mapping ───────────────────────────────────────────
-    appFolder.add(waveSurface.params, 'useVelocity')
-      .name('Use Velocity (not Accel)');
-    appFolder.add(waveSurface.params, 'responseAlpha', 0.5, 0.99, 0.01)
-      .name('Response EMA');
 
-    const waveFolder = gui.addFolder('Gel Surface').close();
-    waveFolder.add(waveSurface.params, 'amplitudeScale', 0,   1000, 10 ).name('Amplitude Scale');
-    waveFolder.add(waveSurface.params, 'muScale',        0,   5000, 50 ).name('Peak Position Scale');
-    waveFolder.add(waveSurface.params, 'sigma',          10,  400,  5  ).name('Bell Width (σ)');
-    waveFolder.add(waveSurface.params, 'asymmetryScale', 0,   1,    0.05).name('Asymmetry');
-    waveFolder.add(waveSurface.params, 'bgAmplitude',    0,   20,   0.5 ).name('Idle Wave Amp');
-    waveFolder.add(waveSurface.params, 'bgSpeed',        0,   2,    0.05).name('Idle Wave Speed');
-    waveFolder.add(waveSurface.params, 'bgFreq',         0,   0.03, 0.001).name('Idle Wave Freq');
+    const fluidFolder = gui.addFolder('Fluid').close();
+    fluidFolder.add(fluidSurface.params, 'flipness', 0.001, 0.05, 0.001)
+      .name('Fluidity')
+      .onChange(v => { if (fluidSurface.simulator) fluidSurface.simulator.flipness = v; });
+    fluidFolder.add(fluidSurface.params, 'timeStep', 0, 0.0055, 0.0001).name('Speed');
+    fluidFolder.add(fluidSurface.params, 'forceMultiplier', 0, 10, 0.1).name('Force Scale');
+
+    const boxFolder = gui.addFolder('Box').close();
+    const pos = fluidSurface.params;
+    const onOrbit = () => fluidSurface.applyCamera();
+    boxFolder.add(pos, 'orbitX', 0, 100, 0.5).name('Position X').onChange(onOrbit);
+    boxFolder.add(pos, 'orbitY', -20, 20, 0.1).name('Position Y').onChange(onOrbit);
+    boxFolder.add(pos, 'orbitZ', 0, 80, 0.5).name('Position Z').onChange(onOrbit);
+    boxFolder.add(pos, 'gridWidth',  10, 150, 1).name('Width');
+    boxFolder.add(pos, 'gridHeight',  1,  20, 0.5).name('Height');
+    boxFolder.add(pos, 'gridDepth',   5, 100, 1).name('Depth');
+    boxFolder.add({ rebuild: () => fluidSurface.rebuild() }, 'rebuild').name('Rebuild Sim');
 
     const nerveFolder = gui.addFolder('Nerve Layer').close();
     nerveFolder.add(nerveLayer.params, 'visible').name('Visible');
@@ -111,18 +97,13 @@ new p5((p) => {
     if (activeInput) activeInput.update();
     const signal = activeInput?.state ?? null;
 
-    const t = p.millis() / 1000;
+    // 1 — step fluid (renders to its own background canvas)
+    fluidSurface.update(signal);
 
-    // 1 — update wave
-    waveSurface.update(signal, p.width);
+    // 2 — clear p5 canvas to transparent so fluid canvas shows through
+    p.clear();
 
-    // 2 — render wave into WEBGL buffer
-    waveSurface.draw(waveGfx, t);
-
-    // 3 — blit wave buffer to 2D main canvas
-    p.image(waveGfx, 0, 0);
-
-    // 4 — 2D overlays on top
+    // 3 — 2D overlays
     nerveLayer.update(signal);
     nerveLayer.draw();
 
@@ -138,6 +119,7 @@ new p5((p) => {
 
   p.windowResized = () => {
     p.resizeCanvas(p.windowWidth, p.windowHeight);
+    fluidSurface.resize(p.windowWidth, p.windowHeight);
     gui.destroy();
     buildLayers();
     buildGUI();
