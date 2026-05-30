@@ -85,7 +85,7 @@ new p5((p) => {
     boxFolder.add(pos, 'orbitY', -20, 20, 0.1).name('Position Y').onChange(onOrbit);
     boxFolder.add(pos, 'orbitZ', 0, 80, 0.5).name('Position Z').onChange(onOrbit);
     boxFolder.add(pos, 'gridWidth',  10, 150, 1).name('Width');
-    boxFolder.add(pos, 'gridHeight',  1,  20, 0.5).name('Height');
+    boxFolder.add(pos, 'gridHeight', 0.1, 2, 0.1).name('Height');
     boxFolder.add(pos, 'gridDepth',   5, 100, 1).name('Depth');
     boxFolder.add(pos, 'particlesPerCell', 1, 40, 1).name('Particles/Cell');
     boxFolder.add({ rebuild: () => fluidSurface.rebuild() }, 'rebuild').name('Rebuild Sim');

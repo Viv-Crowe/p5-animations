@@ -2,11 +2,10 @@
 // Requires the fluid/*.js scripts loaded as <script> tags before this module.
 // Creates its own WebGL canvas behind the p5 canvas.
 
-// Grid: wide canal, thin (appears ~1/9 screen tall), twice original depth
-const GRID_WIDTH  = 60;
-const GRID_HEIGHT = 4;
-const GRID_DEPTH  = 40;
-const PARTICLES_PER_CELL = 10; // default; overridden by params.particlesPerCell
+const GRID_WIDTH  = 111;
+const GRID_HEIGHT = 2;
+const GRID_DEPTH  = 38;
+const PARTICLES_PER_CELL = 3; // default; overridden by params.particlesPerCell
 const GRID_CELL_DENSITY  = 0.5;
 const FOV = Math.PI / 3;
 
@@ -44,9 +43,9 @@ export class FluidSurface {
     flipness:        0.03,
     forceMultiplier: 2.0,
     // Box position — camera orbit target (real-time, no rebuild needed)
-    orbitX: GRID_WIDTH / 2,
-    orbitY: -2.0,
-    orbitZ: GRID_DEPTH * 0.5,
+    orbitX: 49,
+    orbitY: -9.8,
+    orbitZ: 20,
     // Box size — requires rebuild()
     gridWidth:       GRID_WIDTH,
     gridHeight:      GRID_HEIGHT,
