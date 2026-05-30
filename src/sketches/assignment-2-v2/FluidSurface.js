@@ -6,7 +6,7 @@
 const GRID_WIDTH  = 60;
 const GRID_HEIGHT = 4;
 const GRID_DEPTH  = 40;
-const PARTICLES_PER_CELL = 10;
+const PARTICLES_PER_CELL = 10; // default; overridden by params.particlesPerCell
 const GRID_CELL_DENSITY  = 0.5;
 const FOV = Math.PI / 3;
 
@@ -48,9 +48,10 @@ export class FluidSurface {
     orbitY: -2.0,
     orbitZ: GRID_DEPTH * 0.5,
     // Box size — requires rebuild()
-    gridWidth:  GRID_WIDTH,
-    gridHeight: GRID_HEIGHT,
-    gridDepth:  GRID_DEPTH,
+    gridWidth:       GRID_WIDTH,
+    gridHeight:      GRID_HEIGHT,
+    gridDepth:       GRID_DEPTH,
+    particlesPerCell: PARTICLES_PER_CELL,
   };
 
   #canvas;
@@ -168,7 +169,7 @@ export class FluidSurface {
 
     const totalVol = boxes.reduce((s, b) => s + b.computeVolume(), 0);
     const fraction = totalVol / (GW * GH * GD);
-    const desired  = fraction * gx * gy * gz * PARTICLES_PER_CELL;
+    const desired  = fraction * gx * gy * gz * this.params.particlesPerCell;
 
     const pw = 512;
     const ph = Math.ceil(desired / pw);
@@ -184,7 +185,7 @@ export class FluidSurface {
       made += n;
     }
 
-    this.#simRend.reset(pw, ph, positions, gridSize, gridResolution, PARTICLES_PER_CELL, sphereRadius);
+    this.#simRend.reset(pw, ph, positions, gridSize, gridResolution, this.params.particlesPerCell, sphereRadius);
   }
 
   // Apply orbit changes live — no sim restart needed

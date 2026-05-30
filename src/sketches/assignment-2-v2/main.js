@@ -87,6 +87,7 @@ new p5((p) => {
     boxFolder.add(pos, 'gridWidth',  10, 150, 1).name('Width');
     boxFolder.add(pos, 'gridHeight',  1,  20, 0.5).name('Height');
     boxFolder.add(pos, 'gridDepth',   5, 100, 1).name('Depth');
+    boxFolder.add(pos, 'particlesPerCell', 1, 40, 1).name('Particles/Cell');
     boxFolder.add({ rebuild: () => fluidSurface.rebuild() }, 'rebuild').name('Rebuild Sim');
 
     const nerveFolder = gui.addFolder('Nerve Layer').close();
