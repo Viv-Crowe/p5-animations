@@ -8,12 +8,57 @@ var Renderer = (function () {
 
     /*
     we render in a deferred way to a special RGBA texture format
-    the format is (normal.x, normal.y, speed, depth)
-    the normal is normalized (thus z can be reconstructed with sqrt(1.0 - x * x - y * y)
-    the depth simply the z in view space
+    the format is (normal.x, normal.y, paletteIndex, viewSpaceZ)
+    paletteIndex is a stable per-particle colour index (>= 0); background clear is -99999.
     */
 
-    //returns {vertices, normals, indices}
+    // Hexagonal bipyramid — flat-shaded crystal shape.
+    // Each face gets its own 3 vertices so normals are truly flat (no sharing across faces).
+    function generateCrystalGeometry () {
+        var H = 1.5; // apex distance from centre (half-height)
+        var R = 0.6; // equatorial radius
+        var N = 6;   // number of sides
+
+        var packedVertices = [];
+        var packedNormals  = [];
+        var indices        = [];
+        var idx = 0;
+
+        function cross(a, b) {
+            return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+        }
+        function normalize(v) {
+            var len = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+            return [v[0]/len, v[1]/len, v[2]/len];
+        }
+        function addFace(v0, v1, v2) {
+            var e1 = [v1[0]-v0[0], v1[1]-v0[1], v1[2]-v0[2]];
+            var e2 = [v2[0]-v0[0], v2[1]-v0[1], v2[2]-v0[2]];
+            var n  = normalize(cross(e1, e2));
+            [[v0[0],v0[1],v0[2]], [v1[0],v1[1],v1[2]], [v2[0],v2[1],v2[2]]].forEach(function(v) {
+                packedVertices.push(v[0], v[1], v[2]);
+                packedNormals.push(n[0], n[1], n[2]);
+                indices.push(idx++);
+            });
+        }
+
+        var top    = [0,  H, 0];
+        var bottom = [0, -H, 0];
+
+        for (var k = 0; k < N; k++) {
+            var a0 = k       * Math.PI * 2 / N;
+            var a1 = (k + 1) * Math.PI * 2 / N;
+            var eq0 = [R * Math.cos(a0), 0, R * Math.sin(a0)];
+            var eq1 = [R * Math.cos(a1), 0, R * Math.sin(a1)];
+
+            addFace(top,    eq1, eq0); // top face — CCW from outside
+            addFace(bottom, eq0, eq1); // bottom face — CCW from outside
+        }
+
+        return { vertices: packedVertices, normals: packedNormals, indices: indices };
+    }
+
+    // kept for reference but no longer called
     function generateSphereGeometry (iterations) {
 
         var vertices = [],
@@ -164,11 +209,14 @@ var Renderer = (function () {
         this.paletteTexture = null;
         this.paletteSize    = 0;
 
+        // Per-crystal-type instance buffers — populated by reset() from CRYSTAL_GEOMETRIES
+        this.crystalGroups = [];
+
 
         ///////////////////////////////////////////////////////
         // create stuff for rendering 
 
-        var sphereGeometry = this.sphereGeometry = generateSphereGeometry(3);
+        var sphereGeometry = this.sphereGeometry = generateCrystalGeometry();
 
         this.sphereVertexBuffer = wgl.createBuffer();
         wgl.bufferData(this.sphereVertexBuffer, wgl.ARRAY_BUFFER, new Float32Array(sphereGeometry.vertices), wgl.STATIC_DRAW);
@@ -246,6 +294,15 @@ var Renderer = (function () {
     }
 
 
+    // Swap the instanced geometry to a new crystal from the library
+    Renderer.prototype.setCrystal = function (crystalData) {
+        var wgl = this.wgl;
+        wgl.bufferData(this.sphereVertexBuffer, wgl.ARRAY_BUFFER, new Float32Array(crystalData.vertices), wgl.STATIC_DRAW);
+        wgl.bufferData(this.sphereNormalBuffer, wgl.ARRAY_BUFFER, new Float32Array(crystalData.normals),  wgl.STATIC_DRAW);
+        wgl.bufferData(this.sphereIndexBuffer,  wgl.ELEMENT_ARRAY_BUFFER, new Uint16Array(crystalData.indices), wgl.STATIC_DRAW);
+        this.sphereGeometry = crystalData;
+    };
+
     Renderer.prototype.reset = function (particlesWidth, particlesHeight, sphereRadius) {
         this.particlesWidth = particlesWidth;
         this.particlesHeight = particlesHeight;
@@ -267,6 +324,34 @@ var Renderer = (function () {
         }
 
         wgl.bufferData(this.particleVertexBuffer, wgl.ARRAY_BUFFER, particleTextureCoordinates, wgl.STATIC_DRAW);
+
+        // Sort particles into per-crystal instance buffers so each draw call uses one shape.
+        // Hash matches sphere.vert: fract(sin(dot(uv, vec2(127.1,311.7)))*43758.5453)
+        var lib = window.CRYSTAL_GEOMETRIES;
+        if (lib && lib.length > 0) {
+            var numC = lib.length;
+            var groupUVs = [];
+            for (var i = 0; i < numC; i++) groupUVs.push([]);
+
+            for (var py = 0; py < this.particlesHeight; py++) {
+                for (var px = 0; px < this.particlesWidth; px++) {
+                    var ux  = (px + 0.5) / this.particlesWidth;
+                    var uy  = (py + 0.5) / this.particlesHeight;
+                    var sv  = Math.sin(127.1 * ux + 311.7 * uy) * 43758.5453;
+                    var h   = sv - Math.floor(sv);
+                    var g   = Math.min(numC - 1, Math.floor(h * numC));
+                    groupUVs[g].push(ux, uy);
+                }
+            }
+
+            this.crystalGroups = [];
+            for (var gi = 0; gi < numC; gi++) {
+                if (groupUVs[gi].length === 0) continue;
+                var cgBuf = wgl.createBuffer();
+                wgl.bufferData(cgBuf, wgl.ARRAY_BUFFER, new Float32Array(groupUVs[gi]), wgl.STATIC_DRAW);
+                this.crystalGroups.push({ crystal: lib[gi], instanceBuffer: cgBuf, count: groupUVs[gi].length / 2 });
+            }
+        }
     }
 
     //you need to call reset() with the correct parameters before drawing anything
@@ -292,33 +377,39 @@ var Renderer = (function () {
             wgl.COLOR_BUFFER_BIT | wgl.DEPTH_BUFFER_BIT);
 
 
-        var sphereDrawState = wgl.createDrawState()
-            .bindFramebuffer(this.renderingFramebuffer)
-            .viewport(0, 0, this.canvas.width, this.canvas.height)
+        // Draw one pass per crystal type so each particle has a distinct shape.
+        // Falls back to a single pass with particleVertexBuffer if no groups were built.
+        var self = this;
+        function drawSphereGroup(instanceBuffer, count) {
+            var ds = wgl.createDrawState()
+                .bindFramebuffer(self.renderingFramebuffer)
+                .viewport(0, 0, self.canvas.width, self.canvas.height)
+                .enable(wgl.DEPTH_TEST)
+                .enable(wgl.CULL_FACE)
+                .useProgram(self.sphereProgram)
+                .vertexAttribPointer(self.sphereVertexBuffer, self.sphereProgram.getAttribLocation('a_vertexPosition'), 3, wgl.FLOAT, wgl.FALSE, 0, 0)
+                .vertexAttribPointer(self.sphereNormalBuffer,  self.sphereProgram.getAttribLocation('a_vertexNormal'),   3, wgl.FLOAT, wgl.FALSE, 0, 0)
+                .vertexAttribPointer(instanceBuffer, self.sphereProgram.getAttribLocation('a_textureCoordinates'), 2, wgl.FLOAT, wgl.FALSE, 0, 0)
+                .vertexAttribDivisorANGLE(self.sphereProgram.getAttribLocation('a_textureCoordinates'), 1)
+                .bindIndexBuffer(self.sphereIndexBuffer)
+                .uniformMatrix4fv('u_projectionMatrix', false, projectionMatrix)
+                .uniformMatrix4fv('u_viewMatrix',       false, viewMatrix)
+                .uniformTexture('u_positionsTexture', 0, wgl.TEXTURE_2D, simulator.particlePositionTexture)
+                .uniformTexture('u_velocitiesTexture',1, wgl.TEXTURE_2D, simulator.particleVelocityTexture)
+                .uniform1f('u_sphereRadius', self.sphereRadius)
+                .uniform1f('u_paletteSize',  self.paletteSize || 0.0)
+            wgl.drawElementsInstancedANGLE(ds, wgl.TRIANGLES, self.sphereGeometry.indices.length, wgl.UNSIGNED_SHORT, 0, count);
+        }
 
-            .enable(wgl.DEPTH_TEST)
-            .enable(wgl.CULL_FACE)
-
-            .useProgram(this.sphereProgram)
-
-            .vertexAttribPointer(this.sphereVertexBuffer, this.sphereProgram.getAttribLocation('a_vertexPosition'), 3, wgl.FLOAT, wgl.FALSE, 0, 0)
-            .vertexAttribPointer(this.sphereNormalBuffer, this.sphereProgram.getAttribLocation('a_vertexNormal'), 3, wgl.FLOAT, wgl.FALSE, 0, 0)
-
-            .vertexAttribPointer(this.particleVertexBuffer, this.sphereProgram.getAttribLocation('a_textureCoordinates'), 2, wgl.FLOAT, wgl.FALSE, 0, 0)
-            .vertexAttribDivisorANGLE(this.sphereProgram.getAttribLocation('a_textureCoordinates'), 1)
-
-            .bindIndexBuffer(this.sphereIndexBuffer) 
-
-            .uniformMatrix4fv('u_projectionMatrix', false, projectionMatrix)
-            .uniformMatrix4fv('u_viewMatrix', false, viewMatrix)
-
-            .uniformTexture('u_positionsTexture', 0, wgl.TEXTURE_2D, simulator.particlePositionTexture)
-            .uniformTexture('u_velocitiesTexture', 1, wgl.TEXTURE_2D, simulator.particleVelocityTexture)
-
-            .uniform1f('u_sphereRadius', this.sphereRadius)
-
-
-        wgl.drawElementsInstancedANGLE(sphereDrawState, wgl.TRIANGLES, this.sphereGeometry.indices.length, wgl.UNSIGNED_SHORT, 0, this.particlesWidth * this.particlesHeight);
+        if (this.crystalGroups.length > 0) {
+            for (var cgi = 0; cgi < this.crystalGroups.length; cgi++) {
+                var cg = this.crystalGroups[cgi];
+                this.setCrystal(cg.crystal);
+                drawSphereGroup(cg.instanceBuffer, cg.count);
+            }
+        } else {
+            drawSphereGroup(this.particleVertexBuffer, this.particlesWidth * this.particlesHeight);
+        }
 
 
 

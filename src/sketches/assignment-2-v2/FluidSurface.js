@@ -52,6 +52,8 @@ export class FluidSurface {
     gridHeight:      GRID_HEIGHT,
     gridDepth:       GRID_DEPTH,
     particlesPerCell: PARTICLES_PER_CELL,
+    // Crystal shape (index into CRYSTAL_GEOMETRIES, no rebuild needed)
+    crystalIndex: 0,
   };
 
   #canvas;
@@ -100,11 +102,16 @@ export class FluidSurface {
 
     this.#simRend.simulator.flipness = this.params.flipness;
 
+    // Load crystal from library if available, otherwise keep simple fallback
+    if (window.CRYSTAL_GEOMETRIES?.length) {
+      this.setCrystal(this.params.crystalIndex);
+    }
+
     // Apply hardcoded otolith palette immediately
     this.#applyPalette(PALETTE_RGBA, PALETTE_N);
 
     // Also try to load the image from assets for true random sampling
-    this.#tryLoadImage('./assets/otoliths.jpg');
+    this.#tryLoadImage('./assets/stones/otoliths.jpg');
 
     // Fill entire grid volume so the particle box matches the containing box exactly
     this.#beginSim([
@@ -186,6 +193,14 @@ export class FluidSurface {
     }
 
     this.#simRend.reset(pw, ph, positions, gridSize, gridResolution, this.params.particlesPerCell, sphereRadius);
+  }
+
+  // Swap crystal shape live — no sim restart needed
+  setCrystal(index) {
+    if (!this.#loaded || !window.CRYSTAL_GEOMETRIES?.length) return;
+    this.params.crystalIndex = index;
+    const geo = window.CRYSTAL_GEOMETRIES[index % window.CRYSTAL_GEOMETRIES.length];
+    this.#simRend?.renderer?.setCrystal(geo);
   }
 
   // Apply orbit changes live — no sim restart needed
