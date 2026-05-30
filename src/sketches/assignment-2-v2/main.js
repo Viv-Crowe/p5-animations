@@ -3,7 +3,7 @@ import GUI from 'lil-gui';
 import { FaceTracker }  from './FaceTracker.js';
 import { MouseInput }   from './MouseInput.js';
 import { HandInput }    from './HandInput.js';
-import { DebugOverlay } from './DebugOverlay.js';
+import { DevUI } from './DevUI.js';
 import { FluidSurface } from './FluidSurface.js';
 import { NerveLayer }   from './NerveLayer.js';
 
@@ -11,12 +11,12 @@ new p5((p) => {
   let video;
   let faceTracker, mouseInput, handInput, activeInput;
 
-  let fluidSurface, nerveLayer, debugOverlay;
+  let fluidSurface, nerveLayer, devUI;
   let gui;
 
   const appParams = {
     inputSource:      'face',
-    showDebugOverlay: true,
+    showDevUI: true,
   };
 
   p.setup = () => {
@@ -59,17 +59,17 @@ new p5((p) => {
     const nerveH = p.height * 0.17;
     nerveLayer   = new NerveLayer(p, nerveY, nerveH);
 
-    debugOverlay = new DebugOverlay(p);
+    devUI = new DevUI(p);
   }
 
   function buildGUI() {
     gui = new GUI({ title: 'Parameters' });
 
-    const appFolder = gui.addFolder('Input / Debug');
+    const appFolder = gui.addFolder('Dev UI');
     appFolder.add(appParams, 'inputSource', ['face', 'mouse', 'hand'])
       .name('Input Source')
       .onChange(switchInput);
-    appFolder.add(appParams, 'showDebugOverlay').name('Show Debug Overlay');
+    appFolder.add(appParams, 'showDevUI').name('Show Dev UI');
 
     const fluidFolder = gui.addFolder('Fluid').close();
     fluidFolder.add(fluidSurface.params, 'flipness', 0.001, 0.05, 0.001)
@@ -108,7 +108,7 @@ new p5((p) => {
     nerveLayer.update(signal);
     nerveLayer.draw();
 
-    if (appParams.showDebugOverlay) debugOverlay.draw(signal, { video, activeInput });
+    if (appParams.showDevUI) devUI.draw(signal, { video, activeInput });
 
     // fps counter
     p.fill(255, 255, 255, 120);
