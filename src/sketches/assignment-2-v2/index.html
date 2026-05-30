@@ -8,15 +8,37 @@
       html, body {
         margin: 0;
         padding: 0;
+        overflow: hidden;
+        background: #000;
       }
 
-      canvas {
+      /* fluid canvas sits behind everything */
+      #fluid-canvas {
         display: block;
+        position: fixed;
+        top: 0; left: 0;
+        z-index: 0;
+      }
+
+      /* p5 canvas floats on top, transparent */
+      body > canvas:not(#fluid-canvas) {
+        display: block;
+        position: fixed;
+        top: 0; left: 0;
+        z-index: 1;
       }
     </style>
   </head>
   <body>
-    <!-- <script src="https://unpkg.com/ml5@1/dist/ml5.min.js"></script> -->
+    <!-- dli/fluid globals — must load in order before the module -->
+    <script src="./fluid/wrappedgl.js"></script>
+    <script src="./fluid/utilities.js"></script>
+    <script src="./fluid/camera.js"></script>
+    <script src="./fluid/boxeditor.js"></script>
+    <script src="./fluid/simulator.js"></script>
+    <script src="./fluid/renderer.js"></script>
+    <script src="./fluid/simulatorrenderer.js"></script>
+
     <script type="module" src="./main.js"></script>
   </body>
 </html>
