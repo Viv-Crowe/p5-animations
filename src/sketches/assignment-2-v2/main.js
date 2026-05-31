@@ -5,18 +5,23 @@ import { MouseInput }   from './MouseInput.js';
 import { HandInput }    from './HandInput.js';
 import { DevUI } from './DevUI.js';
 import { FluidSurface } from './FluidSurface.js';
-import { NerveLayer }   from './NerveLayer.js';
 
 new p5((p) => {
   let video;
   let faceTracker, mouseInput, handInput, activeInput;
 
-  let fluidSurface, nerveLayer, devUI;
+  let fluidSurface, devUI;
+  let nerveImg;
   let gui;
 
   const appParams = {
     inputSource:      'face',
     showDevUI: true,
+    showNerveLayer: true,
+  };
+
+  p.preload = () => {
+    nerveImg = p.loadImage('./assets/nerves/bg_neural_layer.png');
   };
 
   p.setup = () => {
@@ -54,11 +59,6 @@ new p5((p) => {
 
   function buildLayers() {
     if (!fluidSurface) fluidSurface = new FluidSurface();
-
-    const nerveY = p.height * 0.83;
-    const nerveH = p.height * 0.17;
-    nerveLayer   = new NerveLayer(p, nerveY, nerveH);
-
     devUI = new DevUI(p);
   }
 
@@ -91,7 +91,7 @@ new p5((p) => {
     boxFolder.add({ rebuild: () => fluidSurface.rebuild() }, 'rebuild').name('Rebuild Sim');
 
     const nerveFolder = gui.addFolder('Nerve Layer').close();
-    nerveFolder.add(nerveLayer.params, 'visible').name('Visible');
+    nerveFolder.add(appParams, 'showNerveLayer').name('Visible');
 
     const hp = fluidSurface.hairLayer.params;
     const rebuild = () => fluidSurface.hairLayer.rebuild();
@@ -119,9 +119,11 @@ new p5((p) => {
     // 2 — clear p5 canvas to transparent so fluid canvas shows through
     p.clear();
 
-    // 3 — 2D overlays
-    nerveLayer.update(signal);
-    nerveLayer.draw();
+    // 3 — nerve layer image at bottom of screen
+    if (appParams.showNerveLayer && nerveImg) {
+      const imgH = p.width / (nerveImg.width / nerveImg.height);
+      p.image(nerveImg, 0, p.height - imgH, p.width, imgH);
+    }
 
     if (appParams.showDevUI) devUI.draw(signal, { video, activeInput });
 
