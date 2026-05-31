@@ -96,14 +96,17 @@ new p5((p) => {
     const hp = fluidSurface.hairLayer.params;
     const rebuild = () => fluidSurface.hairLayer.rebuild();
     const hairFolder = gui.addFolder('Hair Cells').close();
-    hairFolder.add(hp, 'clumpCount',      1,    100,  1   ).name('Clumps').onChange(rebuild);
-    hairFolder.add(hp, 'hairsPerClump',   3,     12,  1   ).name('Hairs / Clump').onChange(rebuild);
-    hairFolder.add(hp, 'hairLength',      0.05,  0.30, 0.01).name('Hair Length').onChange(rebuild);
-    hairFolder.add(hp, 'clumpSize',       0.2,   3.0,  0.1 ).name('Clump Spread').onChange(rebuild);
-    hairFolder.add(hp, 'kinociliumScale', 1.2,   3.0,  0.1 ).name('Kinocilium Scale').onChange(rebuild);
-    hairFolder.add(hp, 'deflectionScale', 0.0,   2.0,  0.1 ).name('Deflection');
-    hairFolder.add(hp, 'baseY',          -15.0,  0.0,  0.5 ).name('Base Y');
-    hairFolder.add(hp, 'frontFraction',   0.1,   1.0,  0.05).name('Front Fraction').onChange(rebuild);
+    hairFolder.add(hp, 'clumpCount',     1,    20,   1   ).name('Clusters').onChange(rebuild);
+    hairFolder.add(hp, 'rows',           2,     6,   1   ).name('Rows').onChange(rebuild);
+    hairFolder.add(hp, 'colsPerRow',     3,    14,   1   ).name('Cols / Row').onChange(rebuild);
+    hairFolder.add(hp, 'hairLength',     0.05,  0.30, 0.01).name('Hair Length').onChange(rebuild);
+    hairFolder.add(hp, 'paddleWidth',    0.3,   3.0,  0.05).name('Paddle Width').onChange(rebuild);
+    hairFolder.add(hp, 'paddleDepth',    0.05,  1.0,  0.05).name('Paddle Depth').onChange(rebuild);
+    hairFolder.add(hp, 'staircaseMin',   0.2,   0.9,  0.05).name('Staircase Min').onChange(rebuild);
+    hairFolder.add(hp, 'deflectionScale', 0.0,  2.0,  0.1 ).name('Deflection');
+    hairFolder.add(hp, 'baseY',         -15.0,  0.0,  0.5 ).name('Base Y');
+    hairFolder.add(hp, 'frontFraction',  0.1,   1.0,  0.05).name('Front Fraction').onChange(rebuild);
+    hairFolder.add(hp, 'showDomes').name('Show Domes');
   }
 
   p.draw = () => {
