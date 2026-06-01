@@ -5,12 +5,13 @@ import { MouseInput }   from './MouseInput.js';
 import { HandInput }    from './HandInput.js';
 import { DevUI } from './DevUI.js';
 import { FluidSurface } from './FluidSurface.js';
+import { NeuronLayer } from './NeuronLayer.js';
 
 new p5((p) => {
   let video;
   let faceTracker, mouseInput, handInput, activeInput;
 
-  let fluidSurface, devUI;
+  let fluidSurface, neuronLayer, devUI;
   let nerveImg;
   let gui;
 
@@ -61,7 +62,8 @@ new p5((p) => {
   }
 
   function buildLayers() {
-    if (!fluidSurface) fluidSurface = new FluidSurface();
+    if (!fluidSurface)  fluidSurface  = new FluidSurface();
+    if (!neuronLayer)   neuronLayer   = new NeuronLayer(document.body, p.width, p.height);
     devUI = new DevUI(p);
   }
 
@@ -98,6 +100,11 @@ new p5((p) => {
     nerveFolder.add(appParams, 'nerveR').name('Red channel');
     nerveFolder.add(appParams, 'nerveG').name('Green channel');
     nerveFolder.add(appParams, 'nerveB').name('Blue channel');
+
+    const np = neuronLayer.params;
+    const neuronFolder = gui.addFolder('Neuron').close();
+    neuronFolder.add(np, 'visible').name('Visible');
+    neuronFolder.addColor(np, 'tintColor').name('Tint');
 
     const hp = fluidSurface.hairLayer.params;
     const rebuild = () => fluidSurface.hairLayer.rebuild();
@@ -137,6 +144,9 @@ new p5((p) => {
       p.noTint();
     }
 
+    // 4 — neuron firing animation (own WebGL canvas, z=2, above p5)
+    neuronLayer.update();
+
     if (appParams.showDevUI) devUI.draw(signal, { video, activeInput });
 
     // fps counter
@@ -150,6 +160,7 @@ new p5((p) => {
   p.windowResized = () => {
     p.resizeCanvas(p.windowWidth, p.windowHeight);
     fluidSurface.resize(p.windowWidth, p.windowHeight);
+    neuronLayer.resize(p.windowWidth, p.windowHeight);
     gui.destroy();
     buildLayers();
     buildGUI();
