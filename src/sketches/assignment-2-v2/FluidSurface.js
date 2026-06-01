@@ -232,7 +232,7 @@ export class FluidSurface {
     if (!this.#loaded) return;
 
     if (signal && !signal.noSignal) {
-      this.#simRend.mouseX = (signal.x / this.#canvas.width) * 2 - 1;
+      this.#simRend.mouseX = 1 - (signal.x / this.#canvas.width) * 2;
       this.#simRend.mouseY = -signal.accelX * this.params.forceMultiplier * 0.05;
     }
 

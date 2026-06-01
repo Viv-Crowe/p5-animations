@@ -9,9 +9,9 @@
 // The ISI (inter-fire interval) is what changes with acceleration, not the wave speed.
 
 const BAND_W    = 0.15;
-const FIRE_DUR  = 0.8;
+const FIRE_DUR  = 1.6;
 const CLEAR_DUR = BAND_W * FIRE_DUR;
-const FLASH_DUR = 0.35;
+const FLASH_DUR = 0.7;
 
 const NEURON_COUNT = 12;
 const PATHS = Array.from({ length: NEURON_COUNT }, (_, i) =>
@@ -34,6 +34,7 @@ uniform sampler2D uNeuron;
 uniform float uT;
 uniform float uFlash;
 uniform float uFlashAlpha;
+uniform float uAlpha;
 uniform vec3  uTint;
 varying vec2 vUV;
 
@@ -57,8 +58,8 @@ void main() {
   float front = 1.0 - uT;
   float band  = smoothstep(front, front + FADE_IN, g)
               * (1.0 - smoothstep(front + BAND_W, front + BAND_W + FADE_OUT, g));
-
-  gl_FragColor = vec4(uTint * band, band);
+  float a = band * uAlpha;
+  gl_FragColor = vec4(uTint * a, a);
 }
 `;
 
@@ -70,6 +71,7 @@ export class NeuronLayer {
   #buf;
   #textures = [];
   #ready    = [];
+  #alphas   = [];   // per-neuron alpha, randomised once at construction
   #texW = 1;
   #texH = 1;
 
@@ -78,11 +80,13 @@ export class NeuronLayer {
 
   params = {
     visible:         true,
-    tintColor:       { r: 51, g: 255, b: 229 },
-    basePeriod:      1.0,
-    accelMax:        5.0,
+    tintColor:       { r: 175, g: 30, b: 50 },
+    basePeriod:      14.0,
+    velMax:        5.0,
+    velSensitivity: 1.0,
     modulationDepth: 0.7,
     flashAlpha:      0.2,
+    showFlash:       true,
     x1:              0.35,
     x2:              0.65,
   };
@@ -105,6 +109,7 @@ export class NeuronLayer {
     PATHS.forEach((path, i) => {
       this.#textures.push(this.#loadTexture(path, i));
       this.#ready.push(false);
+      this.#alphas.push(0.4 + Math.random() * 0.4);
     });
 
     // Stagger initial fire times across the full base period
@@ -117,8 +122,8 @@ export class NeuronLayer {
   }
 
   #sampleISI(signal) {
-    const ax   = signal?.accelX ?? 0;
-    const norm = Math.max(-1, Math.min(1, ax / this.params.accelMax));
+    const ax   = (signal?.velX ?? 0) * this.params.velSensitivity;
+    const norm = Math.max(-1, Math.min(1, ax / this.params.velMax));
     const mean = this.params.basePeriod * Math.exp(-norm * this.params.modulationDepth);
     return Math.max(0.03, -mean * Math.log(Math.random()));
   }
@@ -126,7 +131,7 @@ export class NeuronLayer {
   #getDrawState(now, waveStart) {
     const e = now - waveStart;
     if (e < FIRE_DUR + CLEAR_DUR)             return { uT: e / FIRE_DUR, flash: 0 };
-    if (e < FIRE_DUR + CLEAR_DUR + FLASH_DUR) return { uT: 1.5,          flash: 1 };
+    if (e < FIRE_DUR + CLEAR_DUR + FLASH_DUR) return { uT: 1.5, flash: this.params.showFlash ? 1 : 0 };
     return                                           { uT: 1.5,          flash: 0 };
   }
 
@@ -159,6 +164,7 @@ export class NeuronLayer {
       uT:          gl.getUniformLocation(p, 'uT'),
       uFlash:      gl.getUniformLocation(p, 'uFlash'),
       uFlashAlpha: gl.getUniformLocation(p, 'uFlashAlpha'),
+      uAlpha:      gl.getUniformLocation(p, 'uAlpha'),
       uTint:       gl.getUniformLocation(p, 'uTint'),
     };
   }
@@ -173,7 +179,8 @@ export class NeuronLayer {
     const img = new Image();
     img.src = src;
     img.onload = () => {
-      if (index === 0) { this.#texW = img.naturalWidth; this.#texH = img.naturalHeight; }
+      const firstLoad = this.#texW === 1;
+      if (firstLoad) { this.#texW = img.naturalWidth; this.#texH = img.naturalHeight; }
       gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -181,7 +188,7 @@ export class NeuronLayer {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       this.#ready[index] = true;
-      if (index === 0) this.#updateQuad();
+      if (firstLoad) this.#updateQuad();
     };
     img.onerror = () => console.error('NeuronLayer: failed to load', src);
     return tex;
@@ -253,6 +260,7 @@ export class NeuronLayer {
       gl.bindTexture(gl.TEXTURE_2D, this.#textures[i]);
       gl.uniform1f(L.uT,     uT);
       gl.uniform1f(L.uFlash, flash);
+      gl.uniform1f(L.uAlpha, this.#alphas[i]);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
   }

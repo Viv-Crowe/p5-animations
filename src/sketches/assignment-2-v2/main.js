@@ -13,7 +13,7 @@ new p5((p) => {
 
   let fluidSurface, neuronLayer, devUI;
   let nerveImg;
-  let gui;
+  let gui, devUICtrl;
 
   const appParams = {
     inputSource:      'face',
@@ -74,7 +74,7 @@ new p5((p) => {
     appFolder.add(appParams, 'inputSource', ['face', 'mouse', 'hand'])
       .name('Input Source')
       .onChange(switchInput);
-    appFolder.add(appParams, 'showDevUI').name('Show Dev UI');
+    devUICtrl = appFolder.add(appParams, 'showDevUI').name('Show Dev UI');
 
     const fluidFolder = gui.addFolder('Fluid').close();
     fluidFolder.add(fluidSurface.params, 'flipness', 0.001, 0.05, 0.001)
@@ -105,9 +105,11 @@ new p5((p) => {
     const neuronFolder = gui.addFolder('Neuron').close();
     neuronFolder.add(np, 'visible').name('Visible');
     neuronFolder.addColor(np, 'tintColor').name('Tint');
-    neuronFolder.add(np, 'basePeriod',      0.1,  5.0,  0.05).name('Fire interval (s)');
-    neuronFolder.add(np, 'accelMax',         0.1, 20.0, 0.1 ).name('Accel cap');
+    neuronFolder.add(np, 'basePeriod',      0.1, 30.0,  0.5 ).name('Fire interval (s)');
+    neuronFolder.add(np, 'velMax',         0.1, 20.0, 0.1 ).name('Vel cap');
+    neuronFolder.add(np, 'velSensitivity', 0.1, 10.0, 0.1 ).name('Vel sensitivity');
     neuronFolder.add(np, 'modulationDepth',  0,   2.0,  0.05).name('Modulation depth');
+    neuronFolder.add(np, 'showFlash').name('Flash');
     neuronFolder.add(np, 'flashAlpha',       0,   1.0,  0.01).name('Flash alpha');
 
     const hp = fluidSurface.hairLayer.params;
@@ -159,6 +161,15 @@ new p5((p) => {
     p.textSize(11);
     p.textAlign(p.LEFT, p.BOTTOM);
     p.text(`${Math.round(p.frameRate())} fps`, 8, p.height - 6);
+  };
+
+  p.keyPressed = () => {
+    if (p.key === ' ') {
+      appParams.showDevUI = !appParams.showDevUI;
+      devUICtrl?.updateDisplay();
+      appParams.showDevUI ? gui.show() : gui.hide();
+      return false; // prevent page scroll
+    }
   };
 
   p.windowResized = () => {
