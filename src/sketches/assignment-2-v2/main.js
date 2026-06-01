@@ -90,7 +90,7 @@ new p5((p) => {
     boxFolder.add(pos, 'orbitY', -20, 20, 0.1).name('Position Y').onChange(onOrbit);
     boxFolder.add(pos, 'orbitZ', 0, 80, 0.5).name('Position Z').onChange(onOrbit);
     boxFolder.add(pos, 'gridWidth',  10, 150, 1).name('Width');
-    boxFolder.add(pos, 'gridHeight', 0.1, 2, 0.1).name('Height');
+    boxFolder.add(pos, 'gridHeight', 0.1, 4, 0.1).name('Height');
     boxFolder.add(pos, 'gridDepth',   5, 100, 1).name('Depth');
     boxFolder.add(pos, 'particlesPerCell', 1, 40, 1).name('Particles/Cell');
     boxFolder.add({ rebuild: () => fluidSurface.rebuild() }, 'rebuild').name('Rebuild Sim');
@@ -105,6 +105,10 @@ new p5((p) => {
     const neuronFolder = gui.addFolder('Neuron').close();
     neuronFolder.add(np, 'visible').name('Visible');
     neuronFolder.addColor(np, 'tintColor').name('Tint');
+    neuronFolder.add(np, 'basePeriod',      0.1,  5.0,  0.05).name('Fire interval (s)');
+    neuronFolder.add(np, 'accelMax',         0.1, 20.0, 0.1 ).name('Accel cap');
+    neuronFolder.add(np, 'modulationDepth',  0,   2.0,  0.05).name('Modulation depth');
+    neuronFolder.add(np, 'flashAlpha',       0,   1.0,  0.01).name('Flash alpha');
 
     const hp = fluidSurface.hairLayer.params;
     const rebuild = () => fluidSurface.hairLayer.rebuild();
@@ -145,7 +149,7 @@ new p5((p) => {
     }
 
     // 4 — neuron firing animation (own WebGL canvas, z=2, above p5)
-    neuronLayer.update();
+    neuronLayer.update(signal);
 
     if (appParams.showDevUI) devUI.draw(signal, { video, activeInput });
 

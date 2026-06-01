@@ -5,7 +5,7 @@
 import { HairCellLayer } from './HairCellLayer.js';
 
 const GRID_WIDTH  = 111;
-const GRID_HEIGHT = 2;
+const GRID_HEIGHT = 2.5;
 const GRID_DEPTH  = 38;
 const PARTICLES_PER_CELL = 3; // default; overridden by params.particlesPerCell
 const GRID_CELL_DENSITY  = 0.5;
@@ -46,7 +46,7 @@ export class FluidSurface {
     forceMultiplier: 2.0,
     // Box position — camera orbit target (real-time, no rebuild needed)
     orbitX: 49,
-    orbitY: -9.8,
+    orbitY: -12,
     orbitZ: 20,
     // Box size — requires rebuild()
     gridWidth:       GRID_WIDTH,
