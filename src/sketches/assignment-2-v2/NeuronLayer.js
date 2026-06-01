@@ -82,7 +82,8 @@ export class NeuronLayer {
     visible:         true,
     tintColor:       { r: 175, g: 30, b: 50 },
     basePeriod:      14.0,
-    velMax:        5.0,
+    velDeadZone:    0.5,
+    velMax:         5.0,
     velSensitivity: 1.0,
     modulationDepth: 0.7,
     flashAlpha:      0.2,
@@ -122,7 +123,8 @@ export class NeuronLayer {
   }
 
   #sampleISI(signal) {
-    const ax   = (signal?.velX ?? 0) * this.params.velSensitivity;
+    const raw  = signal?.velX ?? 0;
+    const ax   = Math.abs(raw) < this.params.velDeadZone ? 0 : raw * this.params.velSensitivity;
     const norm = Math.max(-1, Math.min(1, ax / this.params.velMax));
     const mean = this.params.basePeriod * Math.exp(-norm * this.params.modulationDepth);
     return Math.max(0.03, -mean * Math.log(Math.random()));

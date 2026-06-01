@@ -106,8 +106,9 @@ new p5((p) => {
     neuronFolder.add(np, 'visible').name('Visible');
     neuronFolder.addColor(np, 'tintColor').name('Tint');
     neuronFolder.add(np, 'basePeriod',      0.1, 30.0,  0.5 ).name('Fire interval (s)');
-    neuronFolder.add(np, 'velMax',         0.1, 20.0, 0.1 ).name('Vel cap');
-    neuronFolder.add(np, 'velSensitivity', 0.1, 10.0, 0.1 ).name('Vel sensitivity');
+    neuronFolder.add(np, 'velDeadZone',    0,    5.0,  0.05).name('Vel dead zone');
+    neuronFolder.add(np, 'velMax',         0.1, 20.0,  0.1 ).name('Vel cap');
+    neuronFolder.add(np, 'velSensitivity', 0.1, 10.0,  0.1 ).name('Vel sensitivity');
     neuronFolder.add(np, 'modulationDepth',  0,   2.0,  0.05).name('Modulation depth');
     neuronFolder.add(np, 'showFlash').name('Flash');
     neuronFolder.add(np, 'flashAlpha',       0,   1.0,  0.01).name('Flash alpha');
