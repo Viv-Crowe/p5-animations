@@ -2,6 +2,9 @@
 
 All tunable values across the sketch. GUI-exposed params can be adjusted live; constants require a code change and page reload.
 
+> **Current focus:** nerve layer animation (NerveLayer.js). No GUI params yet — see NerveLayer.js directly.  
+> The gel surface and crystal layer params below are retained for future work but are not the active priority.
+
 ---
 
 ## Input / Debug panel (GUI)

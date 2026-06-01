@@ -1,4 +1,14 @@
-# Vestibular System Installation — Technical Document v0.1
+# Vestibular System Installation — Technical Document v0.2
+
+## Current Focus
+
+**Active work: nerve layer animation.**
+
+The nerve layer (bottom band) is the current development priority. The goal is a compelling, self-contained nerve animation — bioluminescent pulse propagation through a static nerve background image (`bg_neural_layer.png`) — before integrating it into the full layered scene.
+
+Everything below the "Current Focus" section describes the full installation vision. Most of it is out of scope for now but kept here for future reference.
+
+---
 
 ## Concept Summary
 
@@ -27,49 +37,58 @@ The screen is divided into three horizontal bands, read top to bottom as a cross
 │                                             │
 │           CRYSTAL FIELD   (~4/6)            │
 │         [otoconia — calcium crystals]       │
+│         [OUT OF SCOPE FOR NOW]              │
 │                                             │
 │                                             │
 ├─────────────────────────────────────────────┤
 │           GEL LAYER       (~1/6)            │
 │         [otolithic membrane]                │
+│         [OUT OF SCOPE FOR NOW]              │
 ├─────────────────────────────────────────────┤
-│           NERVE NETWORK   (~1/6)            │
+│           NERVE NETWORK   (~1/6)   ← ACTIVE │
 │         [hair cells + vestibular nerve]     │
 └─────────────────────────────────────────────┘
 ```
 
+---
+
+## Layer 3 — Nerve Network (ACTIVE)
+
+- Represents the hair cells and vestibular nerve fibres below the membrane
+- **Background:** static image (`assets/nerves/bg_neural_layer.png`) — Golgi/Cajal-style nerve illustration
+- **Active animation goal:** pulses of bioluminescent light travel through the network
+    - **Horizontal movement → Colour A** (cool cyan/blue — utricle)
+    - **Vertical movement → Colour B** (warm amber/gold — saccule)
+- Firing intensity / frequency scales with acceleration of movement
+- Resting state: occasional low-intensity spontaneous pulse (ambient / idle)
+
+### Assets available
+
+- `bg_neural_layer.png` — primary background (Golgi-style nerve illustration, processed)
+- `Cajal_Retina.jpg`, `golgi-nervous-system.webp`, `golgi-olfactory-*.webp`, `Golgi_1885_Plate_*.webp` — reference/alternative backgrounds
+- `41586_2013_BFnature12107_MOESM25_ESM.mov` — reference video of nerve firing
+
+---
+
+## Future Scope (not active)
+
 ### Layer 1 — Crystal Field (top ~67%)
 
 - Filled with extended microscope imagery of otoconia (calcium carbonate crystals)
-- Source: existing microscope images, extended via Photoshop Generative Fill and/or AI generation to cover full screen dimensions
+- Source: existing microscope images, extended via Photoshop Generative Fill and/or AI generation
 - Crystals drift and shift subtly in resting state (slow parallax / breathing motion)
-- On lateral acceleration (main interaction): crystals slide in the direction of movement — mass displacement effect
-- On vertical acceleration: crystals dont move on vertical acceleration, distant
+- On lateral acceleration: crystals slide in the direction of movement
+- On vertical acceleration: crystals don't move (distant)
 
 ### Layer 2 — Gel Layer (middle ~17%)
 
 - Represents the gelatinous otolithic membrane the crystals sit within
 - Visual: semi-transparent, viscous, slightly refractive layer
-- has cell structures reaching in, can see a landscape of hairs reaching up into the matrix
 - Behaviour: deforms in response to crystal movement above — lags behind, slow recovery
 - Could be rendered as a spring-mesh or Verlet cloth simulation
 - Resting state: very slow undulation
 
-### Layer 3 — Nerve Network (bottom ~17%)
-
-- Represents the hair cells and vestibular nerve fibres below the membrane
-- Visual: labyrinthine, branching network — organic, dense, slightly bioluminescent feel
-- Could use existing 3D model assets rendered flat, flat images/bit maps, or procedurally generated branching
-- **Nerve firing animation:** pulses of light travel through the network when triggered
-    - **Horizontal movement → Colour A** (e.g. cool cyan/blue — utricle) fires along the assests/generation branches
-    - **Vertical movement → Colour B** (e.g. warm amber/gold — saccule), a faint glow appears on the sides of the screen over the crystal layer to give effect of a different nerve type firing in the distance
-- Firing intensity / frequency scales with acceleration of movement
-
----
-
-## Interaction Design
-
-### Detection — MediaPipe FaceMesh
+### Interaction Design — MediaPipe FaceMesh
 
 |Signal|Derived from|Used for|
 |---|---|---|
@@ -83,19 +102,15 @@ The screen is divided into three horizontal bands, read top to bottom as a cross
 
 **Smoothing:** Raw mediapipe values will need exponential smoothing or a low-pass filter to avoid jitter driving visual noise.
 
-**Calibration:** Camera position relative to the 3m screen needs careful calibration — face tracking quality degrades significantly off-centre at this scale. Camera should be mounted separately (not embedded in screen), ideally at approximately participant head height, centred horizontally.
+**Calibration:** Camera position relative to the 3m screen needs careful calibration. Camera should be mounted separately (not embedded in screen), ideally at approximately participant head height, centred horizontally.
 
-### Resting State
-
-When no participant is detected, or participant is stationary:
+### Resting State (full scene)
 
 - Slow, autonomous drift of crystal layer (very low amplitude)
 - Gentle gel undulation
 - Occasional spontaneous low-intensity nerve pulse (ambient / idle)
 
-### Triggered State
-
-Movement above a threshold velocity drives:
+### Triggered State (full scene)
 
 1. Crystal field displacement proportional to acceleration magnitude
 2. Gel layer deformation (lagged, viscous recovery)
@@ -103,92 +118,53 @@ Movement above a threshold velocity drives:
 
 ### Multiple Participants
 
-With two participants, each face tracked independently. Consider:
+With two participants, each face tracked independently:
+- Average signals if both active simultaneously, or
+- Each participant drives a separate region of the crystal field (left/right split)
 
-- Averaging signals if both active simultaneously
-- Or: each participant drives a separate region of the crystal field (left/right split)
-
----
-
-## Asset Pipeline
-
-### Crystal Field Images
+### Asset Pipeline — Crystal Field
 
 - **Source:** Existing microscope images of otoconia
-- **Challenge:** Insufficient resolution/coverage for full screen at desired scale
 - **Approach (in order of preference):**
-    1. Photoshop Generative Fill — extend existing images; works well for repeating crystalline textures
-    2. AI generation (Midjourney / Stable Diffusion) — generate matching crystal bed images at high resolution, stitch with originals
-    3. Tiling with variation — programmatic tiling with per-tile transform offsets to reduce repetition
-- **Target output:** Single high-res texture (or tileable set) at screen native resolution
+    1. Photoshop Generative Fill — extend existing images
+    2. AI generation (Midjourney / Stable Diffusion) — generate matching images at high resolution
+    3. Tiling with variation — programmatic tiling with per-tile transform offsets
 
-### Gel Layer
+### Technical Stack
 
-- Rendered programmatically (no static asset needed)
-- Spring-mesh simulation in p5.js or shader-based in Three.js/GLSL
-
-### Nerve Network
-
-- **Option A:** Use existing 3D model assets — render as flat/projected view, stylise
-- **Option B:** Procedural generation — L-system or recursive branching in p5.js
-- **Option C:** Hybrid — use 3D model as reference, trace/redraw procedurally
-
----
-
-## Technical Stack
-
-### Recommended: p5.js (with WEBGL where needed)
-
-- Sufficient for 2D crystal texture + spring simulation + nerve rendering
-- Easier to prototype and iterate
+**Recommended:** p5.js (with WEBGL where needed)
 - MediaPipe integration straightforward via ml5.js or direct JS interop
-- **Limitation:** Gel physics and crystal texture manipulation at screen resolution may hit performance ceiling — benchmark early
+- Gel physics and crystal texture at screen resolution may hit performance ceiling — benchmark early
 
-### Alternative: Three.js
-
-- Better suited if 3D model assets are used for nerve layer
-- More performant for large texture manipulation and shader effects
-- Steeper iteration overhead
-- **Recommended if:** gel simulation needs to be shader-based, or 3D model integration becomes central
-
-### Hybrid approach (likely eventual)
-
-- p5.js for interaction logic and 2D layers
-- Three.js / GLSL fragment shaders for gel deformation and nerve glow effects
-
-### MediaPipe
-
-- FaceMesh via `@mediapipe/face_mesh` or ml5.js wrapper
-- Run in-browser, no server required
-- Target: 30fps tracking, decouple from render loop if needed
+**Alternative:** Three.js
+- Better for 3D model assets, shader effects, large texture manipulation
 
 ---
 
 ## Open Questions
 
 1. **Screen aspect ratio** — confirm venue dimensions to finalise layer proportions
-2. **Camera mounting** — position and height relative to screen; affects tracking reliability
-3. **Layer boundary treatment** — hard edge vs. soft dissolve between crystal / gel / nerve bands
-4. **Gel simulation approach** — spring mesh (CPU) vs. GLSL displacement shader (GPU); test both
-5. **Nerve asset decision** — procedural vs. model-derived; affects timeline significantly
-6. **Ambient audio?** — low hum / fluid sound design could reinforce the immersive quality
+2. **Camera mounting** — position and height relative to screen
+3. **Layer boundary treatment** — hard edge vs. soft dissolve between bands
+4. **Gel simulation approach** — spring mesh (CPU) vs. GLSL displacement shader (GPU)
+5. **Ambient audio?** — low hum / fluid sound design
 
 ---
 
 ## Prototype Milestones
 
-|Phase|Goal|
-|---|---|
-|P1|Static layout: crystal image filling top band, placeholder gel + nerve bands|
-|P2|MediaPipe integration: face position + velocity derived, logged to console|
-|P3|Crystal layer responds to lateral movement (translation / parallax)|
-|P4|Nerve firing animation triggered by movement, two-colour axis differentiation|
-|P5|Gel layer deformation (basic spring mesh)|
-|P6|Vertical movement detection + saccule (vertical) firing colour|
-|P7|Resting state animations + idle nerve pulses|
-|P8|Performance optimisation + camera calibration for full-scale screen|
+|Phase|Goal|Status|
+|---|---|---|
+|P1|Static layout: crystal image, placeholder gel + nerve bands|done|
+|P2|MediaPipe integration: face position + velocity|done|
+|P3|Crystal layer responds to lateral movement|done (gel surface branch)|
+|P4|**Nerve firing animation — two-colour axis differentiation**|**← active**|
+|P5|Gel layer deformation (basic spring mesh)|future|
+|P6|Vertical movement + saccule firing colour|future|
+|P7|Resting state animations + idle nerve pulses|future|
+|P8|Performance optimisation + camera calibration|future|
 
 ---
 
-_Document version: 0.1 — based on initial design conversations_  
-_Next review: after asset pipeline decisions confirmed_
+_Document version: 0.2 — updated to reflect active nerve animation focus_  
+_v0.1: initial design conversations_

@@ -18,6 +18,9 @@ new p5((p) => {
     inputSource:      'face',
     showDevUI: true,
     showNerveLayer: true,
+    nerveR: true,
+    nerveG: true,
+    nerveB: true,
   };
 
   p.preload = () => {
@@ -92,6 +95,9 @@ new p5((p) => {
 
     const nerveFolder = gui.addFolder('Nerve Layer').close();
     nerveFolder.add(appParams, 'showNerveLayer').name('Visible');
+    nerveFolder.add(appParams, 'nerveR').name('Red channel');
+    nerveFolder.add(appParams, 'nerveG').name('Green channel');
+    nerveFolder.add(appParams, 'nerveB').name('Blue channel');
 
     const hp = fluidSurface.hairLayer.params;
     const rebuild = () => fluidSurface.hairLayer.rebuild();
@@ -106,6 +112,7 @@ new p5((p) => {
     hairFolder.add(hp, 'deflectionScale', 0.0,  2.0,  0.1 ).name('Deflection');
     hairFolder.add(hp, 'baseY',         -15.0,  0.0,  0.5 ).name('Base Y');
     hairFolder.add(hp, 'frontFraction',  0.1,   1.0,  0.05).name('Front Fraction').onChange(rebuild);
+    hairFolder.add(hp, 'visible').name('Visible');
     hairFolder.add(hp, 'showDomes').name('Show Domes');
   }
 
@@ -122,7 +129,12 @@ new p5((p) => {
     // 3 — nerve layer image at bottom of screen
     if (appParams.showNerveLayer && nerveImg) {
       const imgH = p.width / (nerveImg.width / nerveImg.height);
+      const r = appParams.nerveR ? 255 : 0;
+      const g = appParams.nerveG ? 255 : 0;
+      const b = appParams.nerveB ? 255 : 0;
+      p.tint(r, g, b);
       p.image(nerveImg, 0, p.height - imgH, p.width, imgH);
+      p.noTint();
     }
 
     if (appParams.showDevUI) devUI.draw(signal, { video, activeInput });

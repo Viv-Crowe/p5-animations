@@ -26,6 +26,7 @@ export class HairCellLayer {
     baseY:          -4.0,
     frontFraction:  0.35,
     showDomes:      true,
+    visible:        false,
   };
 
   #canvas; #wgl;
@@ -204,6 +205,7 @@ export class HairCellLayer {
   }
 
   draw(projMatrix, viewMatrix) {
+    if (!this.params.visible) return;
     if (this.#loaded !== 3) return;
     const wgl = this.#wgl;
     if (!wgl.instancedExt) return;
