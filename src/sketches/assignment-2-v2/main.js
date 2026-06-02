@@ -104,6 +104,7 @@ new p5((p) => {
     const np = neuronLayer.params;
     const neuronFolder = gui.addFolder('Neuron').close();
     neuronFolder.add(np, 'visible').name('Visible');
+    neuronFolder.add(np, 'syncFire').name('Sync fire');
     neuronFolder.addColor(np, 'tintColor').name('Tint');
     neuronFolder.add(np, 'basePeriod',      0.1, 30.0,  0.5 ).name('Fire interval (s)');
     neuronFolder.add(np, 'velDeadZone',    0,    5.0,  0.05).name('Vel dead zone');

@@ -71,7 +71,8 @@ export class NeuronLayer {
   #buf;
   #textures = [];
   #ready    = [];
-  #alphas   = [];   // per-neuron alpha, randomised once at construction
+  #alphas      = [];   // per-neuron alpha, randomised once at construction
+  #filteredVel = 0;   // asymmetric EMA of velX — fast rise, slow decay
   #texW = 1;
   #texH = 1;
 
@@ -88,6 +89,7 @@ export class NeuronLayer {
     modulationDepth: 0.7,
     flashAlpha:      0.2,
     showFlash:       true,
+    syncFire:        false,
     x1:              0.35,
     x2:              0.65,
   };
@@ -122,9 +124,8 @@ export class NeuronLayer {
     this.resize(w, h);
   }
 
-  #sampleISI(signal) {
-    const raw  = signal?.velX ?? 0;
-    const ax   = Math.abs(raw) < this.params.velDeadZone ? 0 : raw * this.params.velSensitivity;
+  #sampleISI() {
+    const ax   = this.#filteredVel * this.params.velSensitivity;
     const norm = Math.max(-1, Math.min(1, ax / this.params.velMax));
     const mean = this.params.basePeriod * Math.exp(-norm * this.params.modulationDepth);
     return Math.max(0.03, -mean * Math.log(Math.random()));
@@ -227,12 +228,25 @@ export class NeuronLayer {
 
     if (!this.params.visible || !this.#ready.some(Boolean)) return;
 
+    // Asymmetric EMA: fast rise (~0.14 s), slow decay (~2–3 s at 60 fps)
+    const rawVel = signal?.velX ?? 0;
+    const input  = Math.abs(rawVel) < this.params.velDeadZone ? 0 : rawVel;
+    const alpha  = Math.abs(input) > Math.abs(this.#filteredVel) ? 0.12 : 0.015;
+    this.#filteredVel = this.#filteredVel * (1 - alpha) + input * alpha;
+
     const now = performance.now() / 1000;
 
-    for (const f of this.#fire) {
-      if (now >= f.nextFire) {
-        f.waveStart = now;
-        f.nextFire  = now + this.#sampleISI(signal);
+    if (this.params.syncFire) {
+      if (this.#fire.some(f => now >= f.nextFire)) {
+        const isi = this.#sampleISI();
+        for (const f of this.#fire) { f.waveStart = now; f.nextFire = now + isi; }
+      }
+    } else {
+      for (const f of this.#fire) {
+        if (now >= f.nextFire) {
+          f.waveStart = now;
+          f.nextFire  = now + this.#sampleISI();
+        }
       }
     }
 
